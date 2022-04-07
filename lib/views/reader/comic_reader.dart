@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:common_utils/common_utils.dart';
 import 'package:connectivity/connectivity.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_dmzj/app/api.dart';
@@ -139,9 +138,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void setBrightness() async {
     //亮度信息
     if (!ConfigHelper.getComicSystemBrightness()) {
-      currentBrightness = await ScreenBrightness.current;
-      await ScreenBrightness.setScreenBrightness(
-          ConfigHelper.getComicBrightness());
+      currentBrightness = await ScreenBrightness().current; // current
+      await ScreenBrightness()
+          .setScreenBrightness(ConfigHelper.getComicBrightness());
     }
     if (ConfigHelper.getComicWakelock()) {
       await Wakelock.enable();
@@ -159,7 +158,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void dispose() {
     SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
     Wakelock.disable();
-    ScreenBrightness.setScreenBrightness(currentBrightness);
+    ScreenBrightness().setScreenBrightness(currentBrightness);
     int page = 1;
     if (!ConfigHelper.getComicVertical() ?? false) {
       print(_selectIndex);
@@ -818,7 +817,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                                   max: 1,
                                   min: 0.01,
                                   onChanged: (e) {
-                                    ScreenBrightness.setScreenBrightness(e);
+                                    ScreenBrightness().setScreenBrightness(e);
                                     Provider.of<AppSetting>(context,
                                             listen: false)
                                         .changeBrightness(e);

@@ -48,7 +48,7 @@ class NovelApi {
   }
 
   /// 小说正文
-  String getNovelContentUrl(int volumeId, int chapterId) {
+  String getNovelContentUrl(int id, int volumeId, int chapterId) {
     var path = "/lnovel/${volumeId}_$chapterId.txt";
     var ts = (DateTime.now().millisecondsSinceEpoch / 1000).toStringAsFixed(0);
     var key =
@@ -61,6 +61,8 @@ class NovelApi {
     //   queryParameters: {"t": ts, "k": key},
     // );
 
-    return "http://jurisdiction.muwai.com" + path + "?t=$ts&k=$key";
+    // return "http://v2.api.dmzj.com/novel/download/$id\_$volumeId\_$chapterId.txt";
+
+    return "http://jurisdiction.dmzj.com" + path + "?t=$ts&k=$key";
   }
 }

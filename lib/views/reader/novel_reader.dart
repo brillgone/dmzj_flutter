@@ -874,8 +874,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
       //检查缓存
 
-      var url = NovelApi.instance
-          .getNovelContentUrl(_currentItem.volume_id, _currentItem.chapter_id);
+      var url = NovelApi.instance.getNovelContentUrl(
+          widget.novelId, _currentItem.volume_id, _currentItem.chapter_id);
+      // print("url:" + url);
       var file = await _cacheManager.getFileFromCache(url);
       if (file == null) {
         file = await _cacheManager.downloadFile(url);
@@ -910,6 +911,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       UserHelper.comicAddNovelHistory(
           widget.novelId, _currentItem.volume_id, _currentItem.chapter_id);
     } catch (e) {
+      print("novel_reader Exception:");
       print(e);
     } finally {
       setState(() {
