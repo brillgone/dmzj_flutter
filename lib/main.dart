@@ -7,6 +7,7 @@ import 'package:flutter_dmzj/app/config_helper.dart';
 import 'package:flutter_dmzj/app/utils.dart';
 import 'package:flutter_dmzj/sql/comic_down.dart';
 import 'package:flutter_dmzj/sql/comic_history.dart';
+import 'package:flutter_dmzj/sql/novel_history.dart';
 import 'package:flutter_dmzj/views/comic/comic_home.dart';
 import 'package:flutter_dmzj/views/settings/comic_reader_settings.dart';
 import 'package:flutter_dmzj/views/settings/novel_reader_settings.dart';
@@ -48,7 +49,7 @@ void main() async {
 Future initDatabase() async {
   var databasesPath = await getDatabasesPath();
   // File(databasesPath+"/nsplayer.db").deleteSync();
-  var db = await openDatabase(databasesPath + "/comic_history.db", version: 1,
+  var db = await openDatabase(databasesPath + "/comic_history.db", version: 2,
       onCreate: (Database _db, int version) async {
     await _db.execute('''
 create table $comicHistoryTable ( 
@@ -71,30 +72,51 @@ $comicDownloadColumnCount integer ,
 $comicDownloadColumnSavePath text ,
 $comicDownloadColumnUrls text )
 ''');
-  });
+    NovelHistoryProvider.create(_db);
+  }, onUpgrade: _onUpgrade
+      // onOpen: _onOpen
+      );
 
   ComicHistoryProvider.db = db;
   ComicDownloadProvider.db = db;
+
+  //小说历史初始化
+  NovelHistoryProvider.db = db;
+}
+
+void _onOpen(Database _db) {
+  NovelHistoryProvider.db = _db;
+  NovelHistoryProvider.create(_db);
+}
+
+void _onUpgrade(Database _db, oldVersion, newVersion) {
+  if (oldVersion == 1) {
+    NovelHistoryProvider.db = _db;
+    NovelHistoryProvider.create(_db);
+  }
 }
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    ThemeData darkTheme = ThemeData(
+      brightness: Brightness.dark,
+      primarySwatch: Provider.of<AppTheme>(context).themeColor,
+    );
+
     return MaterialApp(
       title: '动漫之家Flutter',
       theme: ThemeData(
         primarySwatch: Provider.of<AppTheme>(context).themeColor,
         appBarTheme: AppBarTheme(
-          brightness: Brightness.dark,
+          systemOverlayStyle: SystemUiOverlayStyle.dark,
         ),
       ),
       themeMode: Provider.of<AppTheme>(context).themeMode,
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Provider.of<AppTheme>(context).themeColor,
-        accentColor: Provider.of<AppTheme>(context).themeColor,
-      ),
+      darkTheme: darkTheme.copyWith(
+          colorScheme: darkTheme.colorScheme
+              .copyWith(secondary: Provider.of<AppTheme>(context).themeColor)),
       home: MyHomePage(),
       initialRoute: "/",
       routes: {

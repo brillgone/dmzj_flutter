@@ -192,4 +192,13 @@ class ConfigHelper {
   static void setNovelReadDirection(int value) {
     prefs.setInt("NovelReadDirection", value);
   }
+
+  /// 小说临时页面记录
+  static int getCurrentPage(int novelId, int chapterId) {
+    return prefs.getInt("CurrentPage_$novelId\_$chapterId") ?? 1;
+  }
+
+  static void setCurrentPage(int novelId, int chapterId, int value) {
+    prefs.setInt("CurrentPage_$novelId\_$chapterId", value);
+  }
 }

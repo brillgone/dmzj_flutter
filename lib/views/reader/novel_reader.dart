@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
@@ -5,10 +6,8 @@ import 'dart:ui';
 import 'package:battery/battery.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:flutter_dmzj/app/api.dart';
 import 'package:flutter_dmzj/app/api/novel.dart';
 import 'package:flutter_dmzj/app/app_setting.dart';
 import 'package:flutter_dmzj/app/config_helper.dart';
@@ -16,12 +15,13 @@ import 'package:flutter_dmzj/app/user_helper.dart';
 import 'package:flutter_dmzj/app/user_info.dart';
 import 'package:flutter_dmzj/app/utils.dart';
 import 'package:flutter_dmzj/models/novel/novel_volume_item.dart';
+import 'package:flutter_dmzj/sql/novel_history.dart';
 import 'package:flutter_easyrefresh/easy_refresh.dart';
-import 'package:flutter_easyrefresh/material_footer.dart';
-import 'package:flutter_easyrefresh/material_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:html_unescape/html_unescape.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_android_volume_keydown/flutter_android_volume_keydown.dart';
 
 class NovelReaderPage extends StatefulWidget {
   final int novelId;
@@ -51,15 +51,18 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   double _fontSize = 16.0;
   double _lineHeight = 1.5;
   String _batteryStr = "-%";
+  String _timeStr = "00:00"; // 时间显示
   @override
   void initState() {
     super.initState();
     _currentItem = widget.currentItem;
     //全屏
-    SystemChrome.setEnabledSystemUIOverlays([]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     _battery.batteryLevel.then((e) {
       setState(() {
         _batteryStr = e.toString() + "%";
+        DateTime now = DateTime.now();
+        _timeStr = DateFormat('HH:mm').format(now);
       });
     });
 
@@ -67,8 +70,23 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       var e = await _battery.batteryLevel;
       setState(() {
         _batteryStr = e.toString() + "%";
+        DateTime now = DateTime.now();
+        _timeStr = DateFormat('HH:mm').format(now);
       });
     });
+
+    //定时器
+    Timer.periodic(Duration(minutes: 1), (timer) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        DateTime now = DateTime.now();
+        _timeStr = DateFormat('HH:mm').format(now);
+      });
+    });
+
     //刷新内容
     // settingEvent.on<double>().listen((e) async {
     //   await handelContent();
@@ -92,13 +110,19 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     });
 
     loadData();
+    startListening();
   }
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
+    SystemChrome.restoreSystemUIOverlays();
+
+    NovelHistoryProvider.updateOrCreate(NovelHistory(
+        widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
+
     UserHelper.comicAddNovelHistory(
         widget.novelId, _currentItem.volume_id, _currentItem.chapter_id);
+    subscription?.cancel();
     super.dispose();
   }
 
@@ -109,12 +133,26 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     }
   }
 
+  void startListening() {
+    subscription = FlutterAndroidVolumeKeydown.stream.listen((event) {
+      if (event == HardwareButton.volume_down) {
+        print("Volume down received");
+        nextPage();
+      } else if (event == HardwareButton.volume_up) {
+        print("Volume up received");
+        previousPage();
+      }
+    });
+  }
+
   bool _showControls = false;
   bool _showChapters = false;
   PageController _controller = PageController(initialPage: 1);
   ScrollController _controllerVer = ScrollController();
   int _indexPage = 1;
   bool _isPicture = false;
+
+  StreamSubscription<HardwareButton> subscription;
 
   @override
   Widget build(BuildContext context) {
@@ -147,24 +185,30 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                     reverse:
                         Provider.of<AppSetting>(context).novelReadDirection ==
                             1,
-                    onPageChanged: (i) {
-                      if (i == _pageContents.length + 1 && !_loading) {
+                    onPageChanged: (int page) {
+                      if (page == _pageContents.length + 1 && !_loading) {
                         nextChapter();
                         return;
                       }
-                      if (i == 0 && !_loading) {
+                      if (page == 0 && !_loading) {
+                        print("slide previous page:$page");
                         previousChapter();
                         return;
                       }
-                      if (i < _pageContents.length + 1) {
+                      if (page < _pageContents.length + 1) {
                         setState(() {
-                          _indexPage = i;
+                          print("setState page:$page");
+                          print("setState indexPage:$_indexPage");
+                          _indexPage = page;
+                          NovelHistoryProvider.updateOrCreate(NovelHistory(
+                              widget.novelId,
+                              _currentItem.chapter_id,
+                              page.toDouble(),
+                              1));
+                          // ConfigHelper.setCurrentPage(
+                          //     widget.novelId, _currentItem.chapter_id, i);
                         });
                       }
-
-                      // setState(() {
-                      //   _indexPage = i;
-                      // });
                     },
                     itemBuilder: (ctx, i) {
                       if (i == 0) {
@@ -293,9 +337,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       if (Provider.of<AppSetting>(context, listen: false)
                               .novelReadDirection ==
                           1) {
-                        previousPage();
-                      } else {
                         nextPage();
+                      } else {
+                        previousPage();
                       }
                     },
                     child: Container(),
@@ -312,9 +356,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       if (Provider.of<AppSetting>(context, listen: false)
                               .novelReadDirection ==
                           1) {
-                        nextPage();
-                      } else {
                         previousPage();
+                      } else {
+                        nextPage();
                       }
                     },
                     child: Container(),
@@ -327,7 +371,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
             child: Text(
               Provider.of<AppSetting>(context).novelReadDirection == 2
                   ? ""
-                  : "$_indexPage/${_pageContents.length} $_batteryStr电量",
+                  : "$_indexPage/${_pageContents.length} $_batteryStr电量 $_timeStr",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ),
@@ -539,7 +583,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                                     f.chapter_name,
                                     style: TextStyle(
                                         color: f == _currentItem
-                                            ? Theme.of(context).accentColor
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .secondary
                                             : Colors.white),
                                   ),
                                   subtitle: Text(
@@ -561,21 +607,35 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   }
 
   void nextPage() {
-    if (_controller.page == 1) {
-      previousChapter();
+    if (_controller.page > _pageContents.length) {
+      nextChapter();
     } else {
       setState(() {
-        _controller.jumpToPage(_indexPage - 1);
+        var pageTo = _indexPage + 1;
+        _controller.jumpToPage(pageTo);
+        // ConfigHelper.setCurrentPage(
+        //     widget.novelId, _currentItem.chapter_id, pageTo);
+        NovelHistoryProvider.updateOrCreate(
+            NovelHistory(widget.novelId, _currentItem.chapter_id, 1, 1));
       });
     }
   }
 
   void previousPage() {
-    if (_controller.page > _pageContents.length) {
-      nextChapter();
+    if (_controller.page == 1) {
+      previousChapter();
+      _indexPage = 1;
+      // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
+      NovelHistoryProvider.updateOrCreate(NovelHistory(
+          widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
     } else {
       setState(() {
-        _controller.jumpToPage(_indexPage + 1);
+        var pageTo = _indexPage - 1;
+        _controller.jumpToPage(pageTo);
+        NovelHistoryProvider.updateOrCreate(NovelHistory(
+            widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
+        // ConfigHelper.setCurrentPage(
+        //     widget.novelId, _currentItem.chapter_id, pageTo);
       });
     }
   }
@@ -607,6 +667,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     );
   }
 
+  // 打开设置弹窗
   void openSetting() {
     showModalBottomSheet(
       context: context,
@@ -827,7 +888,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     }
     return OutlineButton(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      textColor: Theme.of(context).accentColor,
+      textColor: Theme.of(context).colorScheme.secondary,
       borderSide: BorderSide(color: borderColor),
       child: Text(
         text,
@@ -858,7 +919,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
   bool _loading = false;
   DefaultCacheManager _cacheManager = DefaultCacheManager();
-  Future loadData() async {
+  // 加载数据
+  Future loadData({bool toEnd = false, bool toStart = false}) async {
     try {
       if (_loading) {
         return;
@@ -873,7 +935,6 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       });
 
       //检查缓存
-
       var url = NovelApi.instance.getNovelContentUrl(
           widget.novelId, _currentItem.volume_id, _currentItem.chapter_id);
       // print("url:" + url);
@@ -885,12 +946,13 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       //var response = await http.get(url);
       var bodyBytes = await file.file.readAsBytes();
       if (String.fromCharCodes(bodyBytes.take(200))
-          .contains(RegExp('<img.*?>'))) {
+          .contains(RegExp('<img.*?'))) {
+        // print("image");
         var str = Utf8Decoder().convert(bodyBytes);
         List<String> imgs = [];
         for (var item
             in RegExp(r'<img.*?src=[' '""](.*?)[' '""].*?>').allMatches(str)) {
-          //print(item.group(1));
+          // print(item.group(1));
           imgs.add(item.group(1));
         }
         _contents = Uint8List(0);
@@ -899,12 +961,35 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
           _pageContents = imgs;
         });
       } else {
+        // var str = String.fromCharCodes(bodyBytes.take(200));
+        // print("text:$str");
         setState(() {
           _isPicture = false;
         });
         _contents = bodyBytes;
 
         await handelContent();
+      }
+
+      // 跳转到尾页
+      if (toEnd) {
+        print("toEnd");
+        var toPage = _pageContents.length;
+        _controller.jumpToPage(toPage);
+        _indexPage = toPage; // 未知原因导致跳页后onPageChanged返回index一直是2
+        NovelHistoryProvider.updateOrCreate(NovelHistory(
+            widget.novelId, _currentItem.chapter_id, toPage.toDouble(), 1));
+      } else if (!toStart) {
+        // 跳转到上次阅读页面
+        var novelItem = await NovelHistoryProvider.getItem(widget.novelId);
+        if (novelItem.chapterId == _currentItem.chapter_id) {
+          var oldPage = (novelItem.page).floor();
+          // ConfigHelper.getCurrentPage(widget.novelId, _currentItem.chapter_id);
+          _controller.jumpToPage(oldPage);
+          _indexPage = oldPage;
+          // print("oldPage:$oldPage");
+          // print("indexPage:$_indexPage");
+        }
       }
 
       ConfigHelper.setNovelHistory(widget.novelId, _currentItem.chapter_id);
@@ -937,7 +1022,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       _fontSize = ConfigHelper.getNovelFontSize();
       _lineHeight = ConfigHelper.getNovelLineHeight();
     });
-    print(DateTime.now().millisecondsSinceEpoch - i);
+    print("加载用时(微秒):" + (DateTime.now().millisecondsSinceEpoch - i).toString());
   }
 
   static List<String> computeContent(ComputeParameter par) {
@@ -1016,10 +1101,16 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       Fluttertoast.showToast(msg: '已经是最后一章了');
       return;
     }
+
+    // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
+    _indexPage = 1;
+    NovelHistoryProvider.updateOrCreate(
+        NovelHistory(widget.novelId, _currentItem.chapter_id, 1, 1));
+
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) + 1];
     });
-    await loadData();
+    await loadData(toStart: true);
   }
 
   void previousChapter() async {
@@ -1027,10 +1118,16 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       Fluttertoast.showToast(msg: '已经是最前面一章了');
       return;
     }
+
+    // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
+    _indexPage = 1;
+    NovelHistoryProvider.updateOrCreate(
+        NovelHistory(widget.novelId, _currentItem.chapter_id, 1, 1));
+
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) - 1];
     });
-    await loadData();
+    await loadData(toEnd: true);
   }
 }
 
