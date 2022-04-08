@@ -175,7 +175,7 @@ class _HistoryTabItemState extends State<HistoryTabItem>
   }
 
   Widget createNovelItem(NovelHistoryItem item) {
-    print(item.novel_name);
+    // print(item.novel_name);
     return InkWell(
       onTap: () {
         Utils.openPage(context, int.parse(item.lnovel_id), 2);
@@ -288,7 +288,7 @@ class _HistoryTabItemState extends State<HistoryTabItem>
       if (detail != null && detail.length != 0) {
         for (var item in detail) {
           var historyItem = await ComicHistoryProvider.getItem(item.comic_id);
-          print(item.comic_name);
+          // print(item.comic_name);
           if (historyItem != null) {
             historyItem.chapter_id = item.chapter_id;
             historyItem.page = item.progress?.toDouble() ?? 1;

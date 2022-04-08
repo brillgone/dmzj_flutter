@@ -121,7 +121,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
 
     UserHelper.comicAddNovelHistory(
-        widget.novelId, _currentItem.volume_id, _currentItem.chapter_id);
+        widget.novelId, _currentItem.volume_id, _currentItem.chapter_id,
+        page: _indexPage);
     subscription?.cancel();
     super.dispose();
   }
@@ -197,8 +198,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       }
                       if (page < _pageContents.length + 1) {
                         setState(() {
-                          print("setState page:$page");
-                          print("setState indexPage:$_indexPage");
+                          // print("setState page:$page");
+                          // print("setState indexPage:$_indexPage");
                           _indexPage = page;
                           NovelHistoryProvider.updateOrCreate(NovelHistory(
                               widget.novelId,

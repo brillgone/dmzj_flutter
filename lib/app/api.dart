@@ -270,10 +270,10 @@ class Api {
       int novelId, int volumeId, int chapterId, String uid,
       {int page = 1}) {
     Map map = {
-      novelId.toString(): chapterId.toString(),
+      // novelId.toString(): chapterId.toString(),
       "lnovel_id": novelId.toString(),
       "volume_id": volumeId.toString(),
-      "chapterId": chapterId.toString(),
+      "chapter_id": chapterId.toString(),
       "total_num": 0,
       "page": page,
       "time": timeStamp
