@@ -57,7 +57,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     super.initState();
     _currentItem = widget.currentItem;
     //全屏
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     _battery.batteryLevel.then((e) {
       setState(() {
         _batteryStr = e.toString() + "%";

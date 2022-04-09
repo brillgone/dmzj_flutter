@@ -64,7 +64,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void initState() {
     super.initState();
     if (ConfigHelper.getComicShowStatusBar()) {
-      SystemChrome.setEnabledSystemUIOverlays([]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     }
 
     setBrightness();
@@ -156,7 +156,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
+    SystemChrome.restoreSystemUIOverlays();
     Wakelock.disable();
     ScreenBrightness().setScreenBrightness(currentBrightness);
     int page = 1;
@@ -313,7 +313,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                         minWidth: 10,
                         padding:
                             EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        child: FlatButton(
+                        child: TextButton(
                           onPressed: previousChapter,
                           child: Text(
                             "上一话",
@@ -353,7 +353,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                         minWidth: 10,
                         padding:
                             EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        child: FlatButton(
+                        child: TextButton(
                           onPressed: nextChapter,
                           child: Text(
                             "下一话",
@@ -455,7 +455,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                                     f.chapterTitle,
                                     style: TextStyle(
                                         color: f == _currentItem
-                                            ? Theme.of(context).accentColor
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .secondary
                                             : Colors.white),
                                   ),
                                   subtitle: Text(
@@ -483,7 +485,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   void nextPage() async {
     if (_pageController.page == 1) {
-      await previousChapter();
+      previousChapter();
       setState(() {
         _selectIndex = _detail.page_url.length;
         _pageController = PreloadPageController(initialPage: _selectIndex + 1);
@@ -499,6 +501,18 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           newPage = _selectIndex - 1;
         }
         _pageController.jumpToPage(newPage);
+
+        ComicHistoryProvider.getItem(widget.comicId).then((historyItem) async {
+          if (historyItem != null) {
+            historyItem.chapter_id = _currentItem.chapterId;
+            historyItem.page = newPage.toDouble();
+            await ComicHistoryProvider.update(historyItem);
+          } else {
+            await ComicHistoryProvider.insert(ComicHistory(
+                widget.comicId, _currentItem.chapterId, newPage.toDouble(), 1));
+          }
+          Utils.changHistory.fire(widget.comicId);
+        });
       });
     }
   }
@@ -508,7 +522,19 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       nextChapter();
     } else {
       setState(() {
-        _pageController.jumpToPage(_selectIndex + 1);
+        int newPage = _selectIndex + 1;
+        _pageController.jumpToPage(newPage);
+        ComicHistoryProvider.getItem(widget.comicId).then((historyItem) async {
+          if (historyItem != null) {
+            historyItem.chapter_id = _currentItem.chapterId;
+            historyItem.page = newPage.toDouble();
+            await ComicHistoryProvider.update(historyItem);
+          } else {
+            await ComicHistoryProvider.insert(ComicHistory(
+                widget.comicId, _currentItem.chapterId, newPage.toDouble(), 1));
+          }
+          Utils.changHistory.fire(widget.comicId);
+        });
       });
     }
   }
@@ -608,6 +634,18 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
             if (i < _detail.page_url.length + 1) {
               setState(() {
                 _selectIndex = i;
+              });
+              ComicHistoryProvider.getItem(widget.comicId)
+                  .then((historyItem) async {
+                if (historyItem != null) {
+                  historyItem.chapter_id = _currentItem.chapterId;
+                  historyItem.page = _selectIndex.toDouble();
+                  await ComicHistoryProvider.update(historyItem);
+                } else {
+                  await ComicHistoryProvider.insert(ComicHistory(widget.comicId,
+                      _currentItem.chapterId, _selectIndex.toDouble(), 1));
+                }
+                Utils.changHistory.fire(widget.comicId);
               });
             }
             print('_selectIndex:' + _selectIndex.toString());
@@ -740,8 +778,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           ),
           SizedBox(height: 12),
           Center(
-            child: OutlineButton(
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.6)),
+            child: OutlinedButton(
+                style: ButtonStyle(
+                    side: MaterialStateProperty.resolveWith<BorderSide>(
+                        (Set<MaterialState> states) =>
+                            BorderSide(color: Colors.white.withOpacity(0.6)))),
                 onPressed: openTCPage,
                 child: Text(
                   "查看更多(${_viewPoints.length})",
@@ -888,8 +929,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                     onChanged: (e) {
                       Provider.of<AppSetting>(context, listen: false)
                           .changeComicReadShowStatusBar(e);
-                      SystemChrome.setEnabledSystemUIOverlays(
-                          e ? [] : SystemUiOverlay.values);
+                      e
+                          ? SystemChrome.setEnabledSystemUIMode(
+                              SystemUiMode.manual,
+                              overlays: [])
+                          : SystemChrome.restoreSystemUIOverlays();
                     }),
                 SwitchListTile(
                     title: Text(

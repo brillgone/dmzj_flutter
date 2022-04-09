@@ -16,6 +16,12 @@ version: 1.2.1+220408
 environment:
   sdk: ">=2.1.0 <3.0.0"
 
+dependency_overrides:
+  photo_view:
+    git:
+      url: https://github.com/bluefireteam/photo_view
+      ref: master
+      
 dependencies:
   flutter:
     sdk: flutter
@@ -36,7 +42,6 @@ dependencies:
   carousel_slider: ^4.0.0
   common_utils: ^2.1.0
   webview_flutter: ^3.0.2
-  photo_view: ^0.13.0
   fluttertoast: ^8.0.8
   sqflite: ^2.0.2
   url_launcher: ^6.0.20
