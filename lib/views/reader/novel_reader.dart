@@ -607,13 +607,17 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     );
   }
 
+  Duration pageChangeDura = Duration(milliseconds: 400);
+  Curve curveWay = Curves.decelerate;
+
   void nextPage() {
     if (_controller.page > _pageContents.length) {
       nextChapter();
     } else {
       setState(() {
         var pageTo = _indexPage + 1;
-        _controller.jumpToPage(pageTo);
+        _controller.animateToPage(pageTo,
+            duration: pageChangeDura, curve: curveWay);
         // ConfigHelper.setCurrentPage(
         //     widget.novelId, _currentItem.chapter_id, pageTo);
         NovelHistoryProvider.updateOrCreate(
@@ -632,7 +636,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     } else {
       setState(() {
         var pageTo = _indexPage - 1;
-        _controller.jumpToPage(pageTo);
+        _controller.animateToPage(pageTo,
+            duration: pageChangeDura, curve: curveWay);
         NovelHistoryProvider.updateOrCreate(NovelHistory(
             widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
         // ConfigHelper.setCurrentPage(
