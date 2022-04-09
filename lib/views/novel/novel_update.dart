@@ -7,8 +7,8 @@ import 'package:flutter_dmzj/app/api.dart';
 import 'package:flutter_dmzj/app/utils.dart';
 import 'package:flutter_dmzj/models/novel/novel_update_item.dart';
 import 'package:flutter_easyrefresh/easy_refresh.dart';
-import 'package:flutter_easyrefresh/material_footer.dart';
-import 'package:flutter_easyrefresh/material_header.dart';
+import 'package:flutter_dmzj/views/novel/conponents/floatingIcon.dart';
+
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 
@@ -40,20 +40,22 @@ class _NovelUpdatePageState extends State<NovelUpdatePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return EasyRefresh(
-      onRefresh: () async {
-        _page = 0;
-        await loadData();
-      },
-      onLoad: loadData,
-      header: MaterialHeader(),
-      footer: MaterialFooter(),
-      child: ListView.builder(
-          itemCount: _list.length,
-          itemBuilder: (ctx, i) {
-            return createItem(_list[i]);
-          }),
-    );
+    return Scaffold(
+        body: EasyRefresh(
+          onRefresh: () async {
+            _page = 0;
+            await loadData();
+          },
+          onLoad: loadData,
+          header: MaterialHeader(),
+          footer: MaterialFooter(),
+          child: ListView.builder(
+              itemCount: _list.length,
+              itemBuilder: (ctx, i) {
+                return createItem(_list[i]);
+              }),
+        ),
+        floatingActionButton: MyFloatingIcon(context));
   }
 
   Widget createItem(NovelUpdateItem item) {

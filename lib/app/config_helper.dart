@@ -148,6 +148,15 @@ class ConfigHelper {
     prefs.setBool("ComicSystemBrightness", value);
   }
 
+  /// 上次阅读的小说
+  static int getLastNovel() {
+    return prefs.getInt("lastnovel") ?? 0;
+  }
+
+  static void setLastNovel(int value) {
+    prefs.setInt("lastnovel", value);
+  }
+
   /// 小说阅读记录
   static int getNovelHistory(int novelId) {
     return prefs.getInt("novel$novelId") ?? 0;
@@ -155,6 +164,7 @@ class ConfigHelper {
 
   static void setNovelHistory(int novelId, int value) {
     prefs.setInt("novel$novelId", value);
+    prefs.setInt("lastnovel", novelId);
   }
 
   /// 小说阅读主题
