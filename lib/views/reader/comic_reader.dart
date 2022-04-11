@@ -524,6 +524,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     );
   }
 
+  Duration pageChangeDura = Duration(milliseconds: 400);
+  Curve curveWay = Curves.decelerate;
+
   void previousPage() async {
     if (_pageController.page == 1) {
       previousChapter();
@@ -541,7 +544,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         } else {
           newPage = _selectIndex - 1;
         }
-        _pageController.jumpToPage(newPage);
+        _pageController.animateToPage(newPage,
+            duration: pageChangeDura, curve: curveWay);
 
         ComicHistoryProvider.getItem(widget.comicId).then((historyItem) async {
           if (historyItem != null) {
@@ -564,7 +568,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     } else {
       setState(() {
         int newPage = _selectIndex + 1;
-        _pageController.jumpToPage(newPage);
+        _pageController.animateToPage(newPage,
+            duration: pageChangeDura, curve: curveWay);
         ComicHistoryProvider.getItem(widget.comicId).then((historyItem) async {
           if (historyItem != null) {
             historyItem.chapter_id = _currentItem.chapterId;
