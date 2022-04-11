@@ -52,6 +52,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   double _lineHeight = 1.5;
   String _batteryStr = "-%";
   String _timeStr = "00:00"; // 时间显示
+  Timer myTimer;
   @override
   void initState() {
     super.initState();
@@ -76,7 +77,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     });
 
     //定时器
-    Timer.periodic(Duration(minutes: 1), (timer) {
+    myTimer = Timer.periodic(Duration(minutes: 1), (timer) {
       if (!mounted) {
         return;
       }
@@ -124,6 +125,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         widget.novelId, _currentItem.volume_id, _currentItem.chapter_id,
         page: _indexPage);
     subscription?.cancel();
+    myTimer?.cancel();
     super.dispose();
   }
 

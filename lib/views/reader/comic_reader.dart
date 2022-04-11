@@ -34,6 +34,10 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:share/share.dart';
 import 'package:wakelock/wakelock.dart';
 
+import 'dart:async';
+import 'package:intl/intl.dart';
+import 'package:flutter_android_volume_keydown/flutter_android_volume_keydown.dart';
+
 class ComicReaderPage extends StatefulWidget {
   final int comicId;
   final List<ComicDetailChapterInfoResponse> chapters;
@@ -56,6 +60,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   Connectivity _connectivity = Connectivity();
   String _batteryStr = "-%";
   String _networkState = "";
+  String _timeStr = "00:00"; // 时间显示
+  Timer myTimer;
 
   double _verSliderMax = 0;
   double _verSliderValue = 0;
@@ -103,12 +109,26 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _battery.batteryLevel.then((e) {
       setState(() {
         _batteryStr = e.toString() + "%";
+        DateTime now = DateTime.now();
+        _timeStr = DateFormat('HH:mm').format(now);
       });
     });
     _battery.onBatteryStateChanged.listen((BatteryState state) async {
       var e = await _battery.batteryLevel;
       setState(() {
         _batteryStr = e.toString() + "%";
+      });
+    });
+
+    //定时器
+    myTimer = Timer.periodic(Duration(minutes: 1), (timer) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        DateTime now = DateTime.now();
+        _timeStr = DateFormat('HH:mm').format(now);
       });
     });
 
@@ -133,6 +153,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     });
 
     loadData();
+    startListening();
   }
 
   void setBrightness() async {
@@ -158,7 +179,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void dispose() {
     SystemChrome.restoreSystemUIOverlays();
     Wakelock.disable();
-    ScreenBrightness().setScreenBrightness(currentBrightness);
+
+    if (!ConfigHelper.getComicSystemBrightness()) {
+      ScreenBrightness().setScreenBrightness(currentBrightness);
+    }
+
     int page = 1;
     if (!ConfigHelper.getComicVertical() ?? false) {
       print(_selectIndex);
@@ -182,6 +207,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
     UserHelper.comicAddComicHistory(widget.comicId, _currentItem.chapterId,
         page: page);
+
+    subscription?.cancel();
+    myTimer?.cancel();
     super.dispose();
   }
 
@@ -189,6 +217,19 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   bool _showChapters = false;
   int _selectIndex = 1;
   String _verticalValue = "0%";
+  StreamSubscription<HardwareButton> subscription;
+
+  void startListening() {
+    subscription = FlutterAndroidVolumeKeydown.stream.listen((event) {
+      if (event == HardwareButton.volume_down) {
+        print("Volume down received");
+        nextPage();
+      } else if (event == HardwareButton.volume_up) {
+        print("Volume up received");
+        previousPage();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -210,10 +251,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                     color: Color.fromARGB(255, 34, 34, 34),
                     child: Text(
                       _loading
-                          ? "${_currentItem.chapterTitle}  加载中 WIFI  100%电量"
+                          ? "${_currentItem.chapterTitle}  加载中 WIFI  100%电量 $_timeStr"
                           : Provider.of<AppSetting>(context).comicVerticalMode
-                              ? "${_currentItem.chapterTitle}  $_verticalValue  $_networkState  $_batteryStr电量"
-                              : "${_currentItem.chapterTitle}  $_selectIndex/${_detail.page_url.length}  $_networkState  $_batteryStr 电量",
+                              ? "${_currentItem.chapterTitle}  $_verticalValue  $_networkState  $_batteryStr电量 $_timeStr"
+                              : "${_currentItem.chapterTitle}  $_selectIndex/${_detail.page_url.length}  $_networkState  $_batteryStr 电量 $_timeStr",
                       style: TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   )
@@ -231,9 +272,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                     onTap: () {
                       if (Provider.of<AppSetting>(context, listen: false)
                           .comicReadReverse) {
-                        previousPage();
-                      } else {
                         nextPage();
+                      } else {
+                        previousPage();
                       }
                     },
                     child: Container(),
@@ -249,9 +290,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                     onTap: () {
                       if (Provider.of<AppSetting>(context, listen: false)
                           .comicReadReverse) {
-                        nextPage();
-                      } else {
                         previousPage();
+                      } else {
+                        nextPage();
                       }
                     },
                     child: Container(),
@@ -483,7 +524,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     );
   }
 
-  void nextPage() async {
+  void previousPage() async {
     if (_pageController.page == 1) {
       previousChapter();
       setState(() {
@@ -517,7 +558,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     }
   }
 
-  void previousPage() {
+  void nextPage() {
     if (_pageController.page > _detail.page_url.length) {
       nextChapter();
     } else {
@@ -963,7 +1004,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   bool _loading = false;
   ComicWebChapterDetail _detail;
   DefaultCacheManager _cacheManager = DefaultCacheManager();
-  Future loadData() async {
+  Future loadData({bool toEnd = false, bool toStart = false}) async {
     try {
       if (_loading) {
         return;
@@ -1003,6 +1044,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           _selectIndex = page;
         });
         // _pageController.=;
+      } else if (toEnd) {
+        var toPage = detail.page_url.length;
+        _pageController = new PreloadPageController(initialPage: toPage);
+        setState(() {
+          _selectIndex = toPage;
+        });
       } else {
         _pageController = new PreloadPageController(initialPage: 1);
         setState(() {
@@ -1068,6 +1115,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) - 1];
     });
-    await loadData();
+    await loadData(toEnd: true);
   }
 }
