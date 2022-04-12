@@ -29,7 +29,7 @@ class NovelReaderPage extends StatefulWidget {
   final String novelTitle;
   final List<NovelVolumeChapterItem> chapters;
   final NovelVolumeChapterItem currentItem;
-  bool subscribe;
+  final bool subscribe;
   NovelReaderPage(
       this.novelId, this.novelTitle, this.chapters, this.currentItem,
       {this.subscribe, Key key})
@@ -55,9 +55,11 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   String _timeStr = "00:00"; // 时间显示
   Timer myTimer;
   int readDirection = 0;
+  bool _subscribe;
   @override
   void initState() {
     super.initState();
+    _subscribe = widget.subscribe;
     _currentItem = widget.currentItem;
     //全屏
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
@@ -219,11 +221,10 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                           // print("setState indexPage:$_indexPage");
                           _indexPage = page;
                           NovelHistoryProvider.updateOrCreate(NovelHistory(
-                                  widget.novelId,
-                                  _currentItem.chapter_id,
-                                  page.toDouble(),
-                                  readDirection))
-                              .then((value) => print("ret:$value"));
+                              widget.novelId,
+                              _currentItem.chapter_id,
+                              page.toDouble(),
+                              readDirection));
                           // ConfigHelper.setCurrentPage(
                           //     widget.novelId, _currentItem.chapter_id, i);
                         });
@@ -520,8 +521,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                   ),
                   Row(
                     children: <Widget>[
-                      Provider.of<AppUserInfo>(context).isLogin &&
-                              widget.subscribe
+                      Provider.of<AppUserInfo>(context).isLogin && _subscribe
                           ? createButton(
                               "已订阅",
                               Icons.favorite,
@@ -530,7 +530,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                                     widget.novelId,
                                     cancel: true)) {
                                   setState(() {
-                                    widget.subscribe = false;
+                                    _subscribe = false;
                                   });
                                 }
                               },
@@ -542,7 +542,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                                 if (await UserHelper.novelSubscribe(
                                     widget.novelId)) {
                                   setState(() {
-                                    widget.subscribe = true;
+                                    _subscribe = true;
                                   });
                                 }
                               },
@@ -588,36 +588,58 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                               fontWeight: FontWeight.bold),
                         )),
                     Expanded(
-                      child: ListView(
-                        children: widget.chapters
-                            .map((f) => ListTile(
-                                  dense: true,
-                                  onTap: () async {
-                                    if (f != _currentItem) {
-                                      setState(() {
-                                        _currentItem = f;
-                                        _showChapters = false;
-                                        _showControls = false;
-                                      });
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: widget.chapters.length + 1,
+                        itemBuilder: (context, i) {
+                          if (i == 0) {
+                            var item = widget.chapters[i];
+                            return Text(item.volume_name);
+                          } else {
+                            var item = widget.chapters[i - 1];
 
-                                      await loadData();
-                                    }
-                                  },
-                                  title: Text(
-                                    f.chapter_name,
-                                    style: TextStyle(
-                                        color: f == _currentItem
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .secondary
-                                            : Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    f.volume_name,
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ))
-                            .toList(),
+                            return ListTile(
+                              dense: true,
+                              onTap: () async {
+                                if (item != _currentItem) {
+                                  setState(() {
+                                    _currentItem = item;
+                                    _showChapters = false;
+                                    _showControls = false;
+                                  });
+
+                                  await loadData();
+                                }
+                              },
+                              title: Text(
+                                item.chapter_name,
+                                style: TextStyle(
+                                    color: item == _currentItem
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .secondary
+                                        : Colors.white),
+                              ),
+                              // subtitle: Text(
+                              //   item.volume_name,
+                              //   style: TextStyle(color: Colors.grey),
+                              // ),
+                            );
+                          }
+                        },
+                        separatorBuilder: (context, i) {
+                          if (i != 0) {
+                            var item = widget.chapters[i];
+                            if (i + 1 < widget.chapters.length) {
+                              var nextItem = widget.chapters[i + 1];
+
+                              if (nextItem.volume_id != item.volume_id) {
+                                return Text(nextItem.volume_name);
+                              }
+                            }
+                          }
+                          return Divider();
+                        },
                       ),
                     ),
                   ],
@@ -911,10 +933,11 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     if (borderColor == null) {
       borderColor = Colors.grey.withOpacity(0.6);
     }
-    return OutlineButton(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      textColor: Theme.of(context).colorScheme.secondary,
-      borderSide: BorderSide(color: borderColor),
+    return OutlinedButton(
+      style: ButtonStyle(
+          side: MaterialStateProperty.resolveWith<BorderSide>(
+              (Set<MaterialState> states) =>
+                  BorderSide(color: Colors.white.withOpacity(0.6)))),
       child: Text(
         text,
         style: TextStyle(color: Colors.white),
@@ -1050,7 +1073,6 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       } else if (!toStart) {
         // 跳转到上次阅读页面
         var novelItem = await NovelHistoryProvider.getItem(widget.novelId);
-        print("novelItem.mode:${novelItem.mode}");
         if (novelItem.chapterId == _currentItem.chapter_id &&
             novelItem.mode == readDirection) {
           var oldPage = (novelItem.page).floor();
