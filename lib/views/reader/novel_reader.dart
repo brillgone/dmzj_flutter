@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:battery/battery.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_dmzj/app/api/novel.dart';
@@ -53,6 +54,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   String _batteryStr = "-%";
   String _timeStr = "00:00"; // 时间显示
   Timer myTimer;
+  int readDirection = 0;
   @override
   void initState() {
     super.initState();
@@ -110,16 +112,28 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       });
     });
 
+    setReadDirection();
     loadData();
     startListening();
+  }
+
+  void setReadDirection() {
+    setState(() {
+      readDirection = ConfigHelper.getNovelReadDirection();
+    });
   }
 
   @override
   void dispose() {
     SystemChrome.restoreSystemUIOverlays();
 
-    NovelHistoryProvider.updateOrCreate(NovelHistory(
-        widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
+    if (readDirection == 2) {
+      NovelHistoryProvider.updateOrCreate(NovelHistory(
+          widget.novelId, _currentItem.chapter_id, _verSliderValue, 2));
+    } else {
+      NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
+          _currentItem.chapter_id, _indexPage.toDouble(), readDirection));
+    }
 
     UserHelper.comicAddNovelHistory(
         widget.novelId, _currentItem.volume_id, _currentItem.chapter_id,
@@ -179,6 +193,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
             },
             child: Provider.of<AppSetting>(context).novelReadDirection != 2
                 ? PageView.builder(
+                    //左右滑动模式
                     scrollDirection: Axis.horizontal,
                     pageSnapping:
                         Provider.of<AppSetting>(context).novelReadDirection !=
@@ -204,10 +219,11 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                           // print("setState indexPage:$_indexPage");
                           _indexPage = page;
                           NovelHistoryProvider.updateOrCreate(NovelHistory(
-                              widget.novelId,
-                              _currentItem.chapter_id,
-                              page.toDouble(),
-                              1));
+                                  widget.novelId,
+                                  _currentItem.chapter_id,
+                                  page.toDouble(),
+                                  readDirection))
+                              .then((value) => print("ret:$value"));
                           // ConfigHelper.setCurrentPage(
                           //     widget.novelId, _currentItem.chapter_id, i);
                         });
@@ -278,6 +294,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                     },
                   )
                 : EasyRefresh(
+                    taskIndependence: true,
+                    //上下翻滚模式
                     onRefresh: () async {
                       previousChapter();
                     },
@@ -285,11 +303,13 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       nextChapter();
                     },
                     header: MaterialHeader(),
-                    footer: MaterialFooter(),
+                    footer: MaterialFooter(
+                        enableInfiniteLoad: false), // 关闭无线刷新防止触底就翻页
                     child: SingleChildScrollView(
                       controller: _controllerVer,
                       child: _isPicture
                           ? Column(
+                              // 插图
                               children: _pageContents
                                   .map((f) => InkWell(
                                         onDoubleTap: () {
@@ -310,6 +330,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                                   .toList(),
                             )
                           : Container(
+                              // 正文
                               alignment: Alignment.topCenter,
                               constraints: BoxConstraints(
                                 minHeight: MediaQuery.of(context).size.height,
@@ -622,8 +643,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
             duration: pageChangeDura, curve: curveWay);
         // ConfigHelper.setCurrentPage(
         //     widget.novelId, _currentItem.chapter_id, pageTo);
-        NovelHistoryProvider.updateOrCreate(
-            NovelHistory(widget.novelId, _currentItem.chapter_id, 1, 1));
+        NovelHistoryProvider.updateOrCreate(NovelHistory(
+            widget.novelId, _currentItem.chapter_id, 1, readDirection));
       });
     }
   }
@@ -631,17 +652,13 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   void previousPage() {
     if (_controller.page == 1) {
       previousChapter();
-      _indexPage = 1;
-      // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
-      NovelHistoryProvider.updateOrCreate(NovelHistory(
-          widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
     } else {
       setState(() {
         var pageTo = _indexPage - 1;
         _controller.animateToPage(pageTo,
             duration: pageChangeDura, curve: curveWay);
-        NovelHistoryProvider.updateOrCreate(NovelHistory(
-            widget.novelId, _currentItem.chapter_id, _indexPage.toDouble(), 1));
+        NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
+            _currentItem.chapter_id, _indexPage.toDouble(), readDirection));
         // ConfigHelper.setCurrentPage(
         //     widget.novelId, _currentItem.chapter_id, pageTo);
       });
@@ -937,9 +954,6 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         _loading = true;
 
         _pageContents = ["加载中"];
-        try {
-          _controller.jumpToPage(1);
-        } catch (e) {}
       });
 
       //检查缓存
@@ -979,26 +993,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         await handelContent();
       }
 
-      // 跳转到尾页
-      if (toEnd) {
-        print("toEnd");
-        var toPage = _pageContents.length;
-        _controller.jumpToPage(toPage);
-        _indexPage = toPage; // 未知原因导致跳页后onPageChanged返回index一直是2
-        NovelHistoryProvider.updateOrCreate(NovelHistory(
-            widget.novelId, _currentItem.chapter_id, toPage.toDouble(), 1));
-      } else if (!toStart) {
-        // 跳转到上次阅读页面
-        var novelItem = await NovelHistoryProvider.getItem(widget.novelId);
-        if (novelItem.chapterId == _currentItem.chapter_id) {
-          var oldPage = (novelItem.page).floor();
-          // ConfigHelper.getCurrentPage(widget.novelId, _currentItem.chapter_id);
-          _controller.jumpToPage(oldPage);
-          _indexPage = oldPage;
-          // print("oldPage:$oldPage");
-          // print("indexPage:$_indexPage");
-        }
-      }
+      this.toEnd(toEnd, toStart);
 
       ConfigHelper.setNovelHistory(widget.novelId, _currentItem.chapter_id);
       UserHelper.comicAddNovelHistory(
@@ -1010,6 +1005,67 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       setState(() {
         _loading = false;
       });
+    }
+  }
+
+  void toEnd(bool toEnd, bool toStart) async {
+    print("readDirection:$readDirection");
+    if (readDirection == 2) {
+      // 上下阅读
+      if (toEnd) {
+        // 跳转到尾页
+        print("toEnd");
+
+        SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
+          var toPage = _controllerVer.position.maxScrollExtent; // 减去屏幕高度
+          print("toPage:$toPage");
+          print("_verSliderMax:$_verSliderMax");
+          _controllerVer.jumpTo(toPage);
+          NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
+              _currentItem.chapter_id, _verSliderValue, readDirection));
+        });
+      } else if (!toStart) {
+        // 跳转到上次阅读页面
+        var novelItem = await NovelHistoryProvider.getItem(widget.novelId);
+        if (novelItem.chapterId == _currentItem.chapter_id &&
+            novelItem.mode == readDirection) {
+          var oldPage = novelItem.page;
+          _controllerVer.jumpTo(oldPage);
+          // print("oldPage:$oldPage");
+        }
+      } else {
+        try {
+          _controllerVer.jumpTo(0);
+        } catch (e) {}
+      }
+    } else {
+      // 左右阅读
+      if (toEnd) {
+        // 跳转到尾页
+        print("toEnd");
+        var toPage = _pageContents.length;
+        _controller.jumpToPage(toPage);
+        _indexPage = toPage; // 未知原因导致跳页后onPageChanged返回index一直是2
+        NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
+            _currentItem.chapter_id, toPage.toDouble(), readDirection));
+      } else if (!toStart) {
+        // 跳转到上次阅读页面
+        var novelItem = await NovelHistoryProvider.getItem(widget.novelId);
+        print("novelItem.mode:${novelItem.mode}");
+        if (novelItem.chapterId == _currentItem.chapter_id &&
+            novelItem.mode == readDirection) {
+          var oldPage = (novelItem.page).floor();
+          // ConfigHelper.getCurrentPage(widget.novelId, _currentItem.chapter_id);
+          _controller.jumpToPage(oldPage);
+          _indexPage = oldPage;
+          // print("oldPage:$oldPage");
+          // print("indexPage:$_indexPage");
+        }
+      } else {
+        try {
+          _controller.jumpToPage(1);
+        } catch (e) {}
+      }
     }
   }
 
@@ -1110,10 +1166,16 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       return;
     }
 
-    // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
-    _indexPage = 1;
-    NovelHistoryProvider.updateOrCreate(
-        NovelHistory(widget.novelId, _currentItem.chapter_id, 1, 1));
+    double page = 0;
+    if (readDirection == 2) {
+      page = 0;
+    } else {
+      // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
+      _indexPage = 1;
+      page = 1;
+    }
+    NovelHistoryProvider.updateOrCreate(NovelHistory(
+        widget.novelId, _currentItem.chapter_id, page, readDirection));
 
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) + 1];
@@ -1127,10 +1189,16 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       return;
     }
 
-    // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
-    _indexPage = 1;
-    NovelHistoryProvider.updateOrCreate(
-        NovelHistory(widget.novelId, _currentItem.chapter_id, 1, 1));
+    double page = 0;
+    if (readDirection == 2) {
+      page = 0;
+    } else {
+      // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
+      _indexPage = 1;
+      page = 1;
+    }
+    NovelHistoryProvider.updateOrCreate(NovelHistory(
+        widget.novelId, _currentItem.chapter_id, page, readDirection));
 
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) - 1];

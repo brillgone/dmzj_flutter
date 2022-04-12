@@ -164,7 +164,16 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           .setScreenBrightness(ConfigHelper.getComicBrightness());
     }
     if (ConfigHelper.getComicWakelock()) {
-      await Wakelock.enable();
+      Wakelock.enable();
+    }
+  }
+
+  void resetBrightness() async {
+    if (!ConfigHelper.getComicSystemBrightness()) {
+      ScreenBrightness().setScreenBrightness(currentBrightness);
+    }
+    if (ConfigHelper.getComicWakelock()) {
+      Wakelock.disable();
     }
   }
 
@@ -178,11 +187,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   @override
   void dispose() {
     SystemChrome.restoreSystemUIOverlays();
-    Wakelock.disable();
 
-    if (!ConfigHelper.getComicSystemBrightness()) {
-      ScreenBrightness().setScreenBrightness(currentBrightness);
-    }
+    resetBrightness();
 
     int page = 1;
     if (!ConfigHelper.getComicVertical() ?? false) {

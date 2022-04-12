@@ -100,6 +100,7 @@ create table $tableName (
       if (historyItem != null) {
         historyItem.chapterId = item.chapterId;
         historyItem.page = item.page.toDouble();
+        historyItem.mode = item.mode;
         var ret = await update(historyItem);
 
         if (ret > 0) {
