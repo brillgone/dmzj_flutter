@@ -1009,7 +1009,6 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   }
 
   void toEnd(bool toEnd, bool toStart) async {
-    print("readDirection:$readDirection");
     if (readDirection == 2) {
       // 上下阅读
       if (toEnd) {
@@ -1018,8 +1017,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
         SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
           var toPage = _controllerVer.position.maxScrollExtent; // 减去屏幕高度
-          print("toPage:$toPage");
-          print("_verSliderMax:$_verSliderMax");
+          // print("toPage:$toPage");
+          // print("_verSliderMax:$_verSliderMax");
           _controllerVer.jumpTo(toPage);
           NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
               _currentItem.chapter_id, _verSliderValue, readDirection));
