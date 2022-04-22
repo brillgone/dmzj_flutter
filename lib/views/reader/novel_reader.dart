@@ -62,7 +62,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     _subscribe = widget.subscribe;
     _currentItem = widget.currentItem;
     //全屏
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     _battery.batteryLevel.then((e) {
       setState(() {
         _batteryStr = e.toString() + "%";
@@ -127,7 +127,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
   @override
   void dispose() {
-    SystemChrome.restoreSystemUIOverlays();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     if (readDirection == 2) {
       NovelHistoryProvider.updateOrCreate(NovelHistory(

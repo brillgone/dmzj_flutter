@@ -70,7 +70,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void initState() {
     super.initState();
     if (ConfigHelper.getComicShowStatusBar()) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     }
 
     setBrightness();
@@ -186,7 +186,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   @override
   void dispose() {
-    SystemChrome.restoreSystemUIOverlays();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     resetBrightness();
 
@@ -983,9 +983,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                           .changeComicReadShowStatusBar(e);
                       e
                           ? SystemChrome.setEnabledSystemUIMode(
-                              SystemUiMode.manual,
-                              overlays: [])
-                          : SystemChrome.restoreSystemUIOverlays();
+                              SystemUiMode.immersive)
+                          : SystemChrome.setEnabledSystemUIMode(
+                              SystemUiMode.edgeToEdge);
                     }),
                 SwitchListTile(
                     title: Text(
