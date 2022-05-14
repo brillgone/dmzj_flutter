@@ -259,6 +259,13 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                                           ? ""
                                           : _pageContents[i - 1]);
                                 },
+                                onLongPress: () {
+                                  Utils.showImageViewDialog(
+                                      context,
+                                      _pageContents.length == 0
+                                          ? ""
+                                          : _pageContents[i - 1]);
+                                },
                                 onTap: () {
                                   setState(() {
                                     if (_showChapters) {
@@ -305,7 +312,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                     },
                     header: MaterialHeader(),
                     footer: MaterialFooter(
-                        enableInfiniteLoad: false), // 关闭无线刷新防止触底就翻页
+                        enableInfiniteLoad: false), // 关闭无限刷新防止触底就翻页
                     child: SingleChildScrollView(
                       controller: _controllerVer,
                       child: _isPicture
@@ -314,6 +321,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                               children: _pageContents
                                   .map((f) => InkWell(
                                         onDoubleTap: () {
+                                          Utils.showImageViewDialog(context, f);
+                                        },
+                                        onLongPress: () {
                                           Utils.showImageViewDialog(context, f);
                                         },
                                         onTap: () {
