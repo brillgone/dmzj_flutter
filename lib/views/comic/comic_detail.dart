@@ -689,114 +689,120 @@ class _ComicChapterViewState extends State<ComicChapterView>
   Widget build(BuildContext context) {
     super.build(context);
     return widget.detail.chapters != null && widget.detail.chapters.length != 0
-        ? ListView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.only(top: 12),
-            physics: ScrollPhysics(),
-            itemCount: widget.detail.chapters.length,
-            itemBuilder: (ctx, i) {
-              var f = widget.detail.chapters[i];
-              return Container(
-                padding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                width: double.infinity,
-                color: Theme.of(context).cardColor,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
+        ? SafeArea(
+            child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.only(top: 12),
+                physics: ScrollPhysics(),
+                itemCount: widget.detail.chapters.length,
+                itemBuilder: (ctx, i) {
+                  var f = widget.detail.chapters[i];
+                  return Container(
+                    padding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                    width: double.infinity,
+                    color: Theme.of(context).cardColor,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                                f.title +
-                                    "(共" +
-                                    f.data.length.toString() +
-                                    "话)",
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                    f.title +
+                                        "(共" +
+                                        f.data.length.toString() +
+                                        "话)",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  if (f.desc) {
+                                    f.data.sort((x, y) => x.chapterOrder
+                                        .compareTo(y.chapterOrder));
+                                  } else {
+                                    f.data.sort((x, y) => y.chapterOrder
+                                        .compareTo(x.chapterOrder));
+                                  }
+                                  f.desc = !f.desc;
+                                });
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 4, horizontal: 8),
+                                child: Text(f.desc ? "排序 ↓" : "排序 ↑"),
+                              ),
+                            ),
+                          ],
                         ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (f.desc) {
-                                f.data.sort((x, y) =>
-                                    x.chapterOrder.compareTo(y.chapterOrder));
-                              } else {
-                                f.data.sort((x, y) =>
-                                    y.chapterOrder.compareTo(x.chapterOrder));
-                              }
-                              f.desc = !f.desc;
-                            });
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                vertical: 4, horizontal: 8),
-                            child: Text(f.desc ? "排序 ↓" : "排序 ↑"),
-                          ),
-                        ),
-                      ],
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: ScrollPhysics(),
-                      itemCount:
-                          f.data.length > 14 ? (f.showNum + 1) : f.data.length,
-                      padding: EdgeInsets.all(2),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount:
-                              MediaQuery.of(context).size.width ~/ 120,
-                          mainAxisSpacing: 8.0,
-                          crossAxisSpacing: 8.0,
-                          childAspectRatio: 6 / 2),
-                      itemBuilder: (context, i) {
-                        if (f.data.length > 14 && f.showNum == 14 && i >= 14) {
-                          return OutlineButton(
-                            onPressed: () {
-                              setState(() {
-                                f.showNum = f.data.length - 1;
-                              });
-                            },
-                            borderSide:
-                                BorderSide(color: Colors.grey.withOpacity(0.4)),
-                            child: Text("· · ·"),
-                          );
-                        }
-                        return OutlineButton(
-                          borderSide: BorderSide(
-                              color:
-                                  f.data[i].chapterId == widget.historyChapter
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: ScrollPhysics(),
+                          itemCount: f.data.length > 14
+                              ? (f.showNum + 1)
+                              : f.data.length,
+                          padding: EdgeInsets.all(2),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount:
+                                      MediaQuery.of(context).size.width ~/ 120,
+                                  mainAxisSpacing: 8.0,
+                                  crossAxisSpacing: 8.0,
+                                  childAspectRatio: 6 / 2),
+                          itemBuilder: (context, i) {
+                            if (f.data.length > 14 &&
+                                f.showNum == 14 &&
+                                i >= 14) {
+                              return OutlineButton(
+                                onPressed: () {
+                                  setState(() {
+                                    f.showNum = f.data.length - 1;
+                                  });
+                                },
+                                borderSide: BorderSide(
+                                    color: Colors.grey.withOpacity(0.4)),
+                                child: Text("· · ·"),
+                              );
+                            }
+                            return OutlineButton(
+                              borderSide: BorderSide(
+                                  color: f.data[i].chapterId ==
+                                          widget.historyChapter
                                       ? Theme.of(context).accentColor
                                       : Colors.grey.withOpacity(0.4)),
-                          child: Text(
-                            f.data[i].chapterTitle,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color:
-                                    f.data[i].chapterId == widget.historyChapter
+                              child: Text(
+                                f.data[i].chapterTitle,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: f.data[i].chapterId ==
+                                            widget.historyChapter
                                         ? Theme.of(context).accentColor
                                         : Theme.of(context)
                                             .textTheme
                                             .bodyText1
                                             .color),
-                          ),
-                          onPressed: () {
-                            Utils.openComicReader(
-                                context,
-                                widget.comicId,
-                                widget.detail.title,
-                                widget.isSubscribe,
-                                f.data,
-                                f.data[i]);
+                              ),
+                              onPressed: () {
+                                Utils.openComicReader(
+                                    context,
+                                    widget.comicId,
+                                    widget.detail.title,
+                                    widget.isSubscribe,
+                                    f.data,
+                                    f.data[i]);
+                              },
+                            );
                           },
-                        );
-                      },
+                        ),
+                        SizedBox(height: 8)
+                      ],
                     ),
-                    SizedBox(height: 8)
-                  ],
-                ),
-              );
-            })
+                  );
+                }))
         : Container(
             padding: EdgeInsets.all(12),
             child: Center(
