@@ -742,9 +742,8 @@ class _ComicChapterViewState extends State<ComicChapterView>
                         GridView.builder(
                           shrinkWrap: true,
                           physics: ScrollPhysics(),
-                          itemCount: f.data.length > 14
-                              ? (f.showNum + 1)
-                              : f.data.length,
+                          itemCount:
+                              f.data.length > 15 ? (f.showNum) : f.data.length,
                           padding: EdgeInsets.all(2),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
@@ -754,13 +753,13 @@ class _ComicChapterViewState extends State<ComicChapterView>
                                   crossAxisSpacing: 8.0,
                                   childAspectRatio: 6 / 2),
                           itemBuilder: (context, i) {
-                            if (f.data.length > 14 &&
-                                f.showNum == 14 &&
+                            if (f.data.length > 15 &&
+                                f.showNum == 15 &&
                                 i >= 14) {
                               return OutlineButton(
                                 onPressed: () {
                                   setState(() {
-                                    f.showNum = f.data.length - 1;
+                                    f.showNum = f.data.length;
                                   });
                                 },
                                 borderSide: BorderSide(
