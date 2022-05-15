@@ -17,6 +17,7 @@ import 'package:flutter_dmzj/views/novel/novel_home.dart';
 import 'package:flutter_dmzj/views/setting_page.dart';
 import 'package:flutter_dmzj/views/user/personal_page.dart';
 import 'package:flutter_dmzj/views/user/user_page.dart';
+import 'package:flutter_dmzj/views/reader/noval/novel_page_data.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -41,6 +42,8 @@ void main() async {
           create: (_) => AppUserInfo(), lazy: false),
       ChangeNotifierProvider<AppSetting>(
           create: (_) => AppSetting(), lazy: false),
+      ChangeNotifierProvider<NovelPageData>(
+          create: (_) => NovelPageData(), lazy: false),
     ],
     child: MyApp(),
   ));
