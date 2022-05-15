@@ -688,126 +688,172 @@ class _ComicChapterViewState extends State<ComicChapterView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return widget.detail.chapters != null && widget.detail.chapters.length != 0
-        ? SafeArea(
-            child: ListView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.only(top: 12),
-                physics: ScrollPhysics(),
-                itemCount: widget.detail.chapters.length,
-                itemBuilder: (ctx, i) {
-                  var f = widget.detail.chapters[i];
-                  return Container(
-                    padding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                    width: double.infinity,
-                    color: Theme.of(context).cardColor,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Text(
-                                    f.title +
-                                        "(共" +
-                                        f.data.length.toString() +
-                                        "话)",
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  if (f.desc) {
-                                    f.data.sort((x, y) => x.chapterOrder
-                                        .compareTo(y.chapterOrder));
-                                  } else {
-                                    f.data.sort((x, y) => y.chapterOrder
-                                        .compareTo(x.chapterOrder));
-                                  }
-                                  f.desc = !f.desc;
-                                });
-                              },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                    vertical: 4, horizontal: 8),
-                                child: Text(f.desc ? "排序 ↓" : "排序 ↑"),
-                              ),
-                            ),
-                          ],
-                        ),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: ScrollPhysics(),
-                          itemCount:
-                              f.data.length > 15 ? (f.showNum) : f.data.length,
-                          padding: EdgeInsets.all(2),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount:
-                                      MediaQuery.of(context).size.width ~/ 120,
-                                  mainAxisSpacing: 8.0,
-                                  crossAxisSpacing: 8.0,
-                                  childAspectRatio: 6 / 2),
-                          itemBuilder: (context, i) {
-                            if (f.data.length > 15 &&
-                                f.showNum == 15 &&
-                                i >= 14) {
-                              return OutlineButton(
-                                onPressed: () {
-                                  setState(() {
-                                    f.showNum = f.data.length;
-                                  });
-                                },
-                                borderSide: BorderSide(
-                                    color: Colors.grey.withOpacity(0.4)),
-                                child: Text("· · ·"),
-                              );
-                            }
-                            return OutlineButton(
-                              borderSide: BorderSide(
-                                  color: f.data[i].chapterId ==
-                                          widget.historyChapter
-                                      ? Theme.of(context).accentColor
-                                      : Colors.grey.withOpacity(0.4)),
-                              child: Text(
-                                f.data[i].chapterTitle,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    color: f.data[i].chapterId ==
-                                            widget.historyChapter
-                                        ? Theme.of(context).accentColor
-                                        : Theme.of(context)
-                                            .textTheme
-                                            .bodyText1
-                                            .color),
-                              ),
-                              onPressed: () {
-                                Utils.openComicReader(
-                                    context,
-                                    widget.comicId,
-                                    widget.detail.title,
-                                    widget.isSubscribe,
-                                    f.data,
-                                    f.data[i]);
-                              },
-                            );
-                          },
-                        ),
-                        SizedBox(height: 8)
-                      ],
-                    ),
-                  );
-                }))
-        : Container(
-            padding: EdgeInsets.all(12),
-            child: Center(
-              child: Text("岂可修！竟然没有可以看的章节！"),
-            ),
-          );
+
+    if (widget.detail.chapters != null && widget.detail.chapters.length != 0) {
+      return SafeArea(
+          child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.only(top: 12),
+              physics: ScrollPhysics(),
+              itemCount: widget.detail.chapters.length,
+              itemBuilder: buildChapter));
+    } else {
+      return buildEmpty();
+    }
+  }
+
+  int _currentChapterIndex; // 当前正在构建的章节对应的索引
+  // 章节内容
+  Widget buildChapter(BuildContext ctx, i) {
+    _currentChapterIndex = i;
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+      width: double.infinity,
+      color: Theme.of(context).cardColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          buildChapterTitle(),
+          buildGird(),
+          SizedBox(height: 8)
+        ],
+      ),
+    );
+  }
+
+  // 空内容
+  Widget buildEmpty() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      child: Center(
+        child: Text("岂可修！竟然没有可以看的章节！"),
+      ),
+    );
+  }
+
+  // 章节题头
+  Widget buildChapterTitle() {
+    var currentChapter = widget.detail.chapters[_currentChapterIndex];
+    // 总话数
+    var leftHeaderText = currentChapter.title +
+        "(共" +
+        currentChapter.data.length.toString() +
+        "话)";
+    var leftHeader =
+        Text(leftHeaderText, style: TextStyle(fontWeight: FontWeight.bold));
+
+    // 排序切换
+    var rightHeader = Container(
+      padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: Text(currentChapter.desc ? "排序 ↓" : "排序 ↑"),
+    );
+    // 排序点击事件
+    var onTap = () {
+      setState(() {
+        if (currentChapter.desc) {
+          currentChapter.data
+              .sort((x, y) => x.chapterOrder.compareTo(y.chapterOrder));
+        } else {
+          currentChapter.data
+              .sort((x, y) => y.chapterOrder.compareTo(x.chapterOrder));
+        }
+        currentChapter.desc = !currentChapter.desc;
+      });
+    };
+
+    return Row(children: <Widget>[
+      Expanded(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: leftHeader,
+        ),
+      ),
+      InkWell(
+        onTap: onTap,
+        child: rightHeader,
+      ),
+    ]);
+  }
+
+  // 章节网格
+  Widget buildGird() {
+    var currentChapter = widget.detail.chapters[_currentChapterIndex];
+
+    var gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: MediaQuery.of(context).size.width ~/ 120,
+        mainAxisSpacing: 8.0,
+        crossAxisSpacing: 8.0,
+        childAspectRatio: 6 / 2);
+    // 当总话数大于15时，根据showNum判断是否折叠。否则显示默认个数。
+    var itemCount = currentChapter.data.length > 15
+        ? (currentChapter.showNum)
+        : currentChapter.data.length;
+
+    return GridView.builder(
+        shrinkWrap: true,
+        physics: ScrollPhysics(),
+        itemCount: itemCount,
+        padding: EdgeInsets.all(2),
+        gridDelegate: gridDelegate,
+        itemBuilder: buildButton);
+  }
+
+  Widget buildButton(BuildContext ctx, int i) {
+    // 默认字体颜色
+    var mainColor = Theme.of(context).textTheme.bodyText1.color;
+
+    var currentChapter = widget.detail.chapters[_currentChapterIndex];
+
+    ButtonStyle _buttonStyle = ButtonStyle(
+        side: MaterialStateProperty.resolveWith<BorderSide>(
+            (Set<MaterialState> states) =>
+                BorderSide(color: Colors.grey.withOpacity(0.4))));
+
+    var pressEvent; // 点击事件
+    var textChild; // 按钮文字
+    // 默认显示到15话，大于15话需展开，i计数从0开始，其他为1
+    if (currentChapter.data.length > 15 &&
+        currentChapter.showNum == 15 &&
+        i >= 14) {
+      pressEvent = () {
+        setState(() {
+          currentChapter.showNum = currentChapter.data.length;
+        });
+      };
+
+      textChild = Text(
+        "· · ·",
+        style: TextStyle(color: mainColor),
+      );
+    } else {
+      pressEvent = () {
+        Utils.openComicReader(context, widget.comicId, widget.detail.title,
+            widget.isSubscribe, currentChapter.data, currentChapter.data[i]);
+      };
+
+      // 上次阅读章节字体颜色
+      var seconderyColor = Theme.of(context).colorScheme.secondary;
+      // 默认字体颜色
+      var mainTextStyle;
+      if (currentChapter.data[i].chapterId == widget.historyChapter) {
+        mainTextStyle = TextStyle(color: seconderyColor);
+      } else {
+        mainTextStyle = TextStyle(color: mainColor);
+      }
+
+      textChild = Text(
+        currentChapter.data[i].chapterTitle,
+        textAlign: TextAlign.center,
+        style: mainTextStyle,
+      );
+    }
+
+    return OutlinedButton(
+      style: _buttonStyle,
+      child: textChild,
+      onPressed: pressEvent,
+    );
   }
 
   void openRead() async {
