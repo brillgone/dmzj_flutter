@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:battery/battery.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
 
   @override
   Widget build(BuildContext context) {
-    var showControls = Provider.of<NovelPageData>(context).showControls;
+    var showControls = getNovelPageData(context).showControls;
 
     return AnimatedPositioned(
       duration: Duration(milliseconds: 200),
@@ -60,27 +61,28 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
   }
 
   Widget buildBottomBarTopRow() {
-    var _verSliderValue = Provider.of<NovelPageData>(context).verSliderValue;
-    var _verSliderMax = Provider.of<NovelPageData>(context).verSliderMax;
-    var indexPage = Provider.of<NovelPageData>(context).indexPage;
-    var controllerVer = Provider.of<NovelPageData>(context).controllerVer;
-    var controller = Provider.of<NovelPageData>(context).controller;
+    var _verSliderValue = getNovelPageData(context).verSliderValue;
+    var _verSliderMax = getNovelPageData(context).verSliderMax;
+    var indexPage = getNovelPageData(context).indexPage;
+    var controllerVer = getNovelPageData(context).controllerVer;
+    var controller = getNovelPageData(context).controller;
 
     var sliderContent;
     var onChanged;
-    var max;
-    var value;
-    if (!Provider.of<NovelPageData>(context).loading) {
+    var maxValue;
+    double value;
+    if (!getNovelPageData(context).loading) {
       if (Provider.of<AppSetting>(context).novelReadDirection == 2) {
         value = _verSliderValue;
-        max = _verSliderMax;
+        maxValue = _verSliderMax;
         onChanged = (e) {
           controllerVer.jumpTo(e);
         };
       } else {
         value = indexPage >= 1 ? indexPage - 1.toDouble() : 0;
-        max = Provider.of<NovelPageData>(context).pageContents.length -
-            1.toDouble();
+        maxValue = max(
+            getNovelPageData(context).pageContents.length - 1.toDouble(),
+            value);
         onChanged = (e) {
           setState(() {
             indexPage = e.toInt() + 1;
@@ -92,7 +94,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
       sliderContent = Expanded(
           child: Slider(
         value: value,
-        max: max,
+        max: maxValue,
         onChanged: onChanged,
       ));
     } else {
@@ -105,10 +107,11 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
     return Row(
       children: <Widget>[
         buildChangeChapterButton(
-            (() => content.previousChapter.fire(ChangePage())), "上一话"),
+            (() => mainEvent.fire(EventType(eventType.previousChapter))),
+            "上一话"),
         sliderContent,
         buildChangeChapterButton(
-            (() => content.nextChapter.fire(ChangePage())), "下一话")
+            (() => mainEvent.fire(EventType(eventType.nextChapter))), "下一话")
       ],
     );
   }
@@ -129,7 +132,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
   }
 
   Widget buildBottomBarButtomRow() {
-    var _subscribe = Provider.of<NovelPageData>(context).subscribe;
+    var _subscribe = getNovelPageData(context).subscribe;
     return Row(
       children: <Widget>[
         Provider.of<AppUserInfo>(context).isLogin && _subscribe
@@ -159,7 +162,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
         createButton("设置", Icons.settings, onTap: openSetting),
         createButton("章节", Icons.format_list_bulleted, onTap: () {
           setState(() {
-            Provider.of<NovelPageData>(context).showChapters = true;
+            getNovelPageData(context, listen: false).changeShowChapters(true);
           });
         }),
       ],
@@ -224,7 +227,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
                       }
                       Provider.of<AppSetting>(context, listen: false)
                           .changeNovelFontSize(size - 1);
-                      content.handleContent.fire(ChangePage());
+                      mainEvent.fire(EventType(eventType.handleContent));
                     }),
                   ),
                   SizedBox(
@@ -238,7 +241,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
                       }
                       Provider.of<AppSetting>(context, listen: false)
                           .changeNovelFontSize(size + 1);
-                      content.handleContent.fire(ChangePage());
+                      mainEvent.fire(EventType(eventType.handleContent));
                     }),
                   )
                 ],
@@ -263,7 +266,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
                       }
                       Provider.of<AppSetting>(context, listen: false)
                           .changeNovelLineHeight(height - 0.1);
-                      content.handleContent.fire(ChangePage());
+                      mainEvent.fire(EventType(eventType.handleContent));
                     }),
                   ),
                   SizedBox(
@@ -280,7 +283,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
                       }
                       Provider.of<AppSetting>(context, listen: false)
                           .changeNovelLineHeight(height + 0.1);
-                      content.handleContent.fire(ChangePage());
+                      mainEvent.fire(EventType(eventType.handleContent));
                     }),
                   )
                 ],

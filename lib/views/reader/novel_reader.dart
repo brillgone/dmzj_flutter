@@ -42,8 +42,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   @override
   void initState() {
     super.initState();
-    Provider.of<NovelPageData>(context).subscribe = widget.subscribe;
-    Provider.of<NovelPageData>(context).changeCurrentItem(widget.currentItem);
+    initPageData();
+
     //全屏
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     _battery.batteryLevel.then((e) {
@@ -84,37 +84,40 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     //   print(_controller.offset);
     // });
 
-    setReadDirection();
     startListening();
   }
 
-  void setReadDirection() {
-    setState(() {
-      Provider.of<NovelPageData>(context)
-          .changeReadDirection(ConfigHelper.getNovelReadDirection());
-    });
+  // 初始化页面共享数据
+  void initPageData() {
+    getNovelPageData(context, listen: false).showChapters = false;
+    getNovelPageData(context, listen: false).showControls = false;
+
+    getNovelPageData(context, listen: false).subscribe = widget.subscribe;
+    getNovelPageData(context, listen: false)
+        .changeCurrentItem(widget.currentItem);
   }
+
+  NovelVolumeChapterItem currentItem;
+  int indexPage = 1;
+  double verSliderValue = 0;
 
   @override
   void dispose() {
-    var _verSliderValue = Provider.of<NovelPageData>(context).verSliderValue;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-    var readDirection = Provider.of<NovelPageData>(context).readDirection;
-    var _currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var _indexPage = Provider.of<NovelPageData>(context).indexPage;
+    var readDirection = ConfigHelper.getNovelReadDirection();
 
     if (readDirection == 2) {
       NovelHistoryProvider.updateOrCreate(NovelHistory(
-          widget.novelId, _currentItem.chapter_id, _verSliderValue, 2));
+          widget.novelId, currentItem.chapter_id, verSliderValue, 2));
     } else {
       NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
-          _currentItem.chapter_id, _indexPage.toDouble(), readDirection));
+          currentItem.chapter_id, indexPage.toDouble(), readDirection));
     }
 
     UserHelper.comicAddNovelHistory(
-        widget.novelId, _currentItem.volume_id, _currentItem.chapter_id,
-        page: _indexPage);
+        widget.novelId, currentItem.volume_id, currentItem.chapter_id,
+        page: indexPage);
     subscription?.cancel();
     myTimer?.cancel();
     super.dispose();
@@ -131,10 +134,10 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     subscription = FlutterAndroidVolumeKeydown.stream.listen((event) {
       if (event == HardwareButton.volume_down) {
         print("Volume down received");
-        content.nextPage.fire(event);
+        mainEvent.fire(ChangePage(false));
       } else if (event == HardwareButton.volume_up) {
         print("Volume up received");
-        content.previousPage.fire(event);
+        mainEvent.fire(ChangePage(true));
       }
     });
   }
@@ -144,6 +147,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   NovelReaderContent content;
   @override
   Widget build(BuildContext context) {
+    currentItem = widget.currentItem;
     content = NovelReaderContent(
       widget.novelId,
       widget.novelTitle,
@@ -154,7 +158,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     var goRight;
     var buttomText;
 
-    if (Provider.of<AppSetting>(context).novelReadDirection == 2) {
+    if (Provider.of<AppSetting>(context).novelReadDirection != 2) {
       goLeft = Positioned(
         left: 0,
         width: 40,
@@ -164,9 +168,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
             if (Provider.of<AppSetting>(context, listen: false)
                     .novelReadDirection ==
                 1) {
-              content.nextPage.fire(ChangePage());
+              mainEvent.fire(ChangePage(false));
             } else {
-              content.previousPage.fire(ChangePage());
+              mainEvent.fire(ChangePage(true));
             }
           },
           child: Container(),
@@ -182,22 +186,23 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
             if (Provider.of<AppSetting>(context, listen: false)
                     .novelReadDirection ==
                 1) {
-              content.previousPage.fire(ChangePage());
+              mainEvent.fire(ChangePage(true));
             } else {
-              content.nextPage.fire(ChangePage());
+              mainEvent.fire(ChangePage(false));
             }
           },
           child: Container(),
         ),
       );
 
-      var _indexPage = Provider.of<NovelPageData>(context).indexPage;
-      var length = Provider.of<NovelPageData>(context).pageContents.length;
-      buttomText = "$_indexPage/$length $_batteryStr电量 $_timeStr";
+      indexPage = getNovelPageData(context).indexPage;
+      var length = getNovelPageData(context).pageContents.length;
+      buttomText = "$indexPage/$length $_batteryStr电量 $_timeStr";
     } else {
       goLeft = Positioned(child: Container());
       goRight = Positioned(child: Container());
       buttomText = "";
+      verSliderValue = getNovelPageData(context).verSliderValue;
     }
 
     // 阅读页面底部系统信息文字
@@ -212,7 +217,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     var loadingIndicator = Positioned(
       top: 80,
       width: MediaQuery.of(context).size.width,
-      child: Provider.of<NovelPageData>(context).loading
+      child: getNovelPageData(context).loading
           ? Container(
               width: double.infinity,
               child: Center(
@@ -248,7 +253,6 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   }
 
   Widget buildTopBar() {
-    var currentItem = Provider.of<NovelPageData>(context).currentItem;
     return AnimatedPositioned(
       duration: Duration(milliseconds: 200),
       width: MediaQuery.of(context).size.width,
@@ -283,14 +287,13 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                   onPressed: () {}),
             )),
       ),
-      top: Provider.of<NovelPageData>(context).showControls ? 0 : -100,
+      top: getNovelPageData(context).showControls ? 0 : -100,
       left: 0,
     );
   }
 
   Widget buildRightBar() {
-    var currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var showChapters = Provider.of<NovelPageData>(context).showChapters;
+    var showChapters = getNovelPageData(context).showChapters;
 
     return AnimatedPositioned(
       duration: Duration(milliseconds: 200),
@@ -332,15 +335,15 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                           var _currentItem = currentItem;
                           if (item != _currentItem) {
                             setState(() {
-                              Provider.of<NovelPageData>(context)
+                              getNovelPageData(context, listen: false)
                                   .changeCurrentItem(item);
-                              Provider.of<NovelPageData>(context).showChapters =
-                                  false;
-                              Provider.of<NovelPageData>(context).showControls =
-                                  false;
+                              getNovelPageData(context, listen: false)
+                                  .showChapters = false;
+                              getNovelPageData(context, listen: false)
+                                  .showControls = false;
                             });
 
-                            content.loadData.fire(ChangePage());
+                            mainEvent.fire(EventType(eventType.loadData));
                           }
                         },
                         title: Text(

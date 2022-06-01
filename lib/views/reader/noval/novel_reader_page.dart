@@ -39,17 +39,10 @@ class NovelReaderContent extends StatefulWidget {
   final NovelVolumeChapterItem currentItem;
 
   @override
-  _NovelReaderContentState createState() => _NovelReaderContentState();
-
-  final EventBus nextPage = EventBus();
-  final EventBus previousPage = EventBus();
-  final EventBus nextChapter = EventBus();
-  final EventBus previousChapter = EventBus();
-  final EventBus handleContent = EventBus();
-  final EventBus loadData = EventBus();
+  NovelReaderContentState createState() => NovelReaderContentState();
 }
 
-class _NovelReaderContentState extends State<NovelReaderContent> {
+class NovelReaderContentState extends State<NovelReaderContent> {
   double _fontSize = 16.0;
   double _lineHeight = 1.5;
 
@@ -57,18 +50,42 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
 
   Uint8List _contents;
 
+  StreamSubscription<ChangePage> pagechangeEvent;
+  StreamSubscription<EventType> eventRunnter;
   @override
   void initState() {
     super.initState();
 
-    widget.nextPage.on<ChangePage>().listen(nextPage);
-    widget.previousPage.on<ChangePage>().listen(previousPage);
-    widget.nextChapter.on<ChangePage>().listen(nextChapter);
-    widget.previousChapter.on<ChangePage>().listen(previousChapter);
-    widget.handleContent.on<ChangePage>().listen(handleContent);
-    widget.loadData.on<ChangePage>().listen(loadData);
+    pagechangeEvent = mainEvent.on<ChangePage>().listen((event) {
+      print(event.asc);
+      if (event.asc) {
+        previousPage(1);
+      } else {
+        nextPage(1);
+      }
+    });
 
-    var _controllerVer = Provider.of<NovelPageData>(context).controllerVer;
+    eventRunnter = mainEvent.on<EventType>().listen((event) {
+      print(event.type);
+      var type = event.type;
+      switch (type) {
+        case eventType.loadData:
+          loadData(1);
+          break;
+        case eventType.nextChapter:
+          nextChapter(1);
+          break;
+        case eventType.previousChapter:
+          previousChapter(1);
+          break;
+        case eventType.handleContent:
+          handleContent(1);
+          break;
+        default:
+      }
+    });
+
+    var _controllerVer = getNovelPageData(context, listen: false).controllerVer;
     _controllerVer.addListener(() {
       var value = _controllerVer.offset;
       if (value < 0) {
@@ -78,13 +95,21 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
         value = _controllerVer.position.maxScrollExtent;
       }
       setState(() {
-        Provider.of<NovelPageData>(context).verSliderMax =
+        getNovelPageData(context, listen: false).verSliderMax =
             _controllerVer.position.maxScrollExtent;
-        Provider.of<NovelPageData>(context).changeVerSliderValue(value);
+        getNovelPageData(context, listen: false).changeVerSliderValue(value);
       });
     });
 
-    loadData(1);
+    WidgetsBinding.instance.addPostFrameCallback(((timeStamp) => loadData(1)));
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+
+    pagechangeEvent.cancel();
+    eventRunnter.cancel();
   }
 
   @override
@@ -96,16 +121,15 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
       child = buildEasyRefresh();
     }
 
-    var _showChapters = Provider.of<NovelPageData>(context).showChapters;
-
     var onTap = () {
+      var _showChapters = getNovelPageData(context, listen: false).showChapters;
       setState(() {
         if (_showChapters) {
-          _showChapters = false;
+          getNovelPageData(context, listen: false).changeShowChapters(false);
           return;
         }
-        Provider.of<NovelPageData>(context).showControls =
-            !Provider.of<NovelPageData>(context).showControls;
+        getNovelPageData(context, listen: false).changeShowControls(
+            !getNovelPageData(context, listen: false).showControls);
       });
     };
 
@@ -120,8 +144,10 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
   // 左右滑动页面
   Widget buildPageView() {
     var onPageChanged = (int page) {
-      var _loading = Provider.of<NovelPageData>(context).loading;
-      if (page == Provider.of<NovelPageData>(context).pageContents.length + 1 &&
+      var _loading = getNovelPageData(context, listen: false).loading;
+      if (page ==
+              getNovelPageData(context, listen: false).pageContents.length +
+                  1 &&
           !_loading) {
         nextChapter(1);
         return;
@@ -131,13 +157,15 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
         previousChapter(1);
         return;
       }
-      if (page < Provider.of<NovelPageData>(context).pageContents.length + 1) {
+      if (page <
+          getNovelPageData(context, listen: false).pageContents.length + 1) {
         setState(() {
           // print("setState page:$page");
           // print("setState indexPage:$_indexPage");
-          Provider.of<NovelPageData>(context).indexPage = page;
-          var readDirection = Provider.of<NovelPageData>(context).readDirection;
-          var _currentItem = Provider.of<NovelPageData>(context).currentItem;
+          getNovelPageData(context, listen: false).changeIndexPage(page);
+          var readDirection = ConfigHelper.getNovelReadDirection();
+          var _currentItem =
+              getNovelPageData(context, listen: false).currentItem;
           NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
               _currentItem.chapter_id, page.toDouble(), readDirection));
           // ConfigHelper.setCurrentPage(
@@ -150,8 +178,8 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
         //左右滑动模式
         scrollDirection: Axis.horizontal,
         pageSnapping: Provider.of<AppSetting>(context).novelReadDirection != 2,
-        controller: Provider.of<NovelPageData>(context).controller,
-        itemCount: Provider.of<NovelPageData>(context).pageContents.length + 2,
+        controller: getNovelPageData(context).controller,
+        itemCount: getNovelPageData(context).pageContents.length + 2,
         reverse: Provider.of<AppSetting>(context).novelReadDirection == 1,
         onPageChanged: onPageChanged,
         itemBuilder: buildContainer);
@@ -159,7 +187,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
 
   // 左右滑动阅读界面内容
   Widget buildContainer(BuildContext ctx, int i) {
-    var _pageContents = Provider.of<NovelPageData>(context).pageContents;
+    var _pageContents = getNovelPageData(context).pageContents;
     var _widget;
     if (i == 0) {
       _widget = Container(
@@ -175,6 +203,8 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
       var aligment;
       var mainFontColor = AppSetting
           .fontColors[Provider.of<AppSetting>(context).novelReadTheme];
+      var mainBgColor =
+          AppSetting.bgColors[Provider.of<AppSetting>(context).novelReadTheme];
 
       if (_isPicture) {
         var onDoubleTap = () {
@@ -187,15 +217,17 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
               context, _pageContents.length == 0 ? "" : _pageContents[i - 1]);
         };
 
-        var _showChapters = Provider.of<NovelPageData>(context).showChapters;
         var onTap = () {
+          var _showChapters =
+              getNovelPageData(context, listen: false).showChapters;
           setState(() {
             if (_showChapters) {
-              _showChapters = false;
+              getNovelPageData(context, listen: false)
+                  .changeShowChapters(false);
               return;
             }
-            Provider.of<NovelPageData>(context).showControls =
-                !Provider.of<NovelPageData>(context).showControls;
+            getNovelPageData(context, listen: false).changeShowControls(
+                !getNovelPageData(context, listen: false).showControls);
           });
         };
 
@@ -222,7 +254,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
       }
 
       _widget = Container(
-        color: mainFontColor,
+        color: mainBgColor,
         padding: padding,
         alignment: aligment,
         child: content,
@@ -246,11 +278,11 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
       header: MaterialHeader(),
       footer: MaterialFooter(enableInfiniteLoad: false), // 关闭无限刷新防止触底就翻页
       child: SingleChildScrollView(
-        controller: Provider.of<NovelPageData>(context).controllerVer,
+        controller: getNovelPageData(context).controllerVer,
         child: _isPicture
             ? Column(
                 // 插图
-                children: Provider.of<NovelPageData>(context)
+                children: getNovelPageData(context)
                     .pageContents
                     .map((f) => InkWell(
                           onDoubleTap: () {
@@ -261,16 +293,18 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
                           },
                           onTap: () {
                             var _showChapters =
-                                Provider.of<NovelPageData>(context)
+                                getNovelPageData(context, listen: false)
                                     .showChapters;
                             setState(() {
                               if (_showChapters) {
-                                _showChapters = false;
+                                getNovelPageData(context, listen: false)
+                                    .changeShowChapters(false);
                                 return;
                               }
-                              Provider.of<NovelPageData>(context).showControls =
-                                  !Provider.of<NovelPageData>(context)
-                                      .showControls;
+                              getNovelPageData(context, listen: false)
+                                  .changeShowControls(
+                                      !getNovelPageData(context, listen: false)
+                                          .showControls);
                             });
                           },
                           child: Utils.createCacheImage(f, 100, 100),
@@ -286,8 +320,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
                 color: AppSetting
                     .bgColors[Provider.of<AppSetting>(context).novelReadTheme],
                 padding: EdgeInsets.fromLTRB(12, 12, 12, 24),
-                child: Text(
-                    Provider.of<NovelPageData>(context).pageContents.join(),
+                child: Text(getNovelPageData(context).pageContents.join(),
                     style: TextStyle(
                         fontSize: _fontSize,
                         height: _lineHeight,
@@ -301,17 +334,19 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
   DefaultCacheManager _cacheManager = DefaultCacheManager();
   // 加载数据
   Future loadData(event, {bool toEnd = false, bool toStart = false}) async {
-    var _loading = Provider.of<NovelPageData>(context, listen: false).loading;
+    var _loading = getNovelPageData(context, listen: false).loading;
 
     try {
       if (_loading) {
         return;
+      } else {
+        getNovelPageData(context, listen: false).loading = true;
       }
       setState(() {
-        Provider.of<NovelPageData>(context).changePageContents(["加载中"]);
+        getNovelPageData(context, listen: false).changePageContents(["加载中"]);
       });
 
-      var _currentItem = Provider.of<NovelPageData>(context).currentItem;
+      var _currentItem = getNovelPageData(context, listen: false).currentItem;
       //检查缓存
       var url = NovelApi.instance.getNovelContentUrl(
           widget.novelId, _currentItem.volume_id, _currentItem.chapter_id);
@@ -336,7 +371,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
         _contents = Uint8List(0);
         setState(() {
           _isPicture = true;
-          Provider.of<NovelPageData>(context).changePageContents(imgs);
+          getNovelPageData(context, listen: false).changePageContents(imgs);
         });
       } else {
         // var str = String.fromCharCodes(bodyBytes.take(200));
@@ -360,13 +395,14 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
     } finally {
       setState(() {
         _loading = false;
+        getNovelPageData(context, listen: false).loading = false;
       });
     }
   }
 
   void toEnd(bool toEnd, bool toStart) async {
-    var _currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var readDirection = Provider.of<NovelPageData>(context).readDirection;
+    var _currentItem = getNovelPageData(context, listen: false).currentItem;
+    var readDirection = ConfigHelper.getNovelReadDirection();
 
     if (readDirection == 2) {
       // 上下阅读
@@ -375,15 +411,15 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
         print("toEnd");
 
         SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
-          var toPage = Provider.of<NovelPageData>(context)
+          var toPage = getNovelPageData(context, listen: false)
               .controllerVer
               .position
               .maxScrollExtent; // 减去屏幕高度
           // print("toPage:$toPage");
           // print("_verSliderMax:$_verSliderMax");
-          Provider.of<NovelPageData>(context).controllerVer.jumpTo(toPage);
+          getNovelPageData(context, listen: false).controllerVer.jumpTo(toPage);
           var _verSliderValue =
-              Provider.of<NovelPageData>(context).verSliderValue;
+              getNovelPageData(context, listen: false).verSliderValue;
           NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
               _currentItem.chapter_id, _verSliderValue, readDirection));
         });
@@ -393,12 +429,14 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
         if (novelItem.chapterId == _currentItem.chapter_id &&
             novelItem.mode == readDirection) {
           var oldPage = novelItem.page;
-          Provider.of<NovelPageData>(context).controllerVer.jumpTo(oldPage);
+          getNovelPageData(context, listen: false)
+              .controllerVer
+              .jumpTo(oldPage);
           // print("oldPage:$oldPage");
         }
       } else {
         try {
-          Provider.of<NovelPageData>(context).controllerVer.jumpTo(0);
+          getNovelPageData(context, listen: false).controllerVer.jumpTo(0);
         } catch (e) {}
       }
     } else {
@@ -406,27 +444,30 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
       if (toEnd) {
         // 跳转到尾页
         print("toEnd");
-        var toPage = Provider.of<NovelPageData>(context).pageContents.length;
-        Provider.of<NovelPageData>(context).controller.jumpToPage(toPage);
-        Provider.of<NovelPageData>(context).indexPage =
-            toPage; // 未知原因导致跳页后onPageChanged返回index一直是2
+        var toPage =
+            getNovelPageData(context, listen: false).pageContents.length;
+        getNovelPageData(context, listen: false).controller.jumpToPage(toPage);
+        getNovelPageData(context, listen: false)
+            .changeIndexPage(toPage); // 未知原因导致跳页后onPageChanged返回index一直是2
         NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
             _currentItem.chapter_id, toPage.toDouble(), readDirection));
       } else if (!toStart) {
         // 跳转到上次阅读页面
         var novelItem = await NovelHistoryProvider.getItem(widget.novelId);
-        if (novelItem.chapterId == _currentItem.chapter_id &&
+        if (novelItem?.chapterId == _currentItem.chapter_id &&
             novelItem.mode == readDirection) {
           var oldPage = (novelItem.page).floor();
           // ConfigHelper.getCurrentPage(widget.novelId, _currentItem.chapter_id);
-          Provider.of<NovelPageData>(context).controller.jumpToPage(oldPage);
-          Provider.of<NovelPageData>(context).indexPage = oldPage;
+          getNovelPageData(context, listen: false)
+              .controller
+              .jumpToPage(oldPage);
+          getNovelPageData(context, listen: false).changeIndexPage(oldPage);
           // print("oldPage:$oldPage");
           // print("indexPage:$_indexPage");
         }
       } else {
         try {
-          Provider.of<NovelPageData>(context).controller.jumpToPage(1);
+          getNovelPageData(context, listen: false).controller.jumpToPage(1);
         } catch (e) {}
       }
     }
@@ -445,7 +486,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
     var ls = await compute(computeContent, par);
 
     setState(() {
-      Provider.of<NovelPageData>(context).changePageContents(ls);
+      getNovelPageData(context, listen: false).changePageContents(ls);
 
       _fontSize = ConfigHelper.getNovelFontSize();
       _lineHeight = ConfigHelper.getNovelLineHeight();
@@ -528,13 +569,13 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
   Curve curveWay = Curves.decelerate;
 
   void nextPage(event) {
-    var _currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var readDirection = Provider.of<NovelPageData>(context).readDirection;
-    var _controller = Provider.of<NovelPageData>(context).controller;
-    var _indexPage = Provider.of<NovelPageData>(context).indexPage;
+    var _currentItem = getNovelPageData(context, listen: false).currentItem;
+    var readDirection = ConfigHelper.getNovelReadDirection();
+    var _controller = getNovelPageData(context, listen: false).controller;
+    var _indexPage = getNovelPageData(context, listen: false).indexPage;
 
     if (_controller.page >
-        Provider.of<NovelPageData>(context).pageContents.length) {
+        getNovelPageData(context, listen: false).pageContents.length) {
       nextChapter(1);
     } else {
       setState(() {
@@ -550,10 +591,10 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
   }
 
   void previousPage(event) {
-    var _currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var readDirection = Provider.of<NovelPageData>(context).readDirection;
-    var _controller = Provider.of<NovelPageData>(context).controller;
-    var _indexPage = Provider.of<NovelPageData>(context).indexPage;
+    var _currentItem = getNovelPageData(context, listen: false).currentItem;
+    var readDirection = ConfigHelper.getNovelReadDirection();
+    var _controller = getNovelPageData(context, listen: false).controller;
+    var _indexPage = getNovelPageData(context, listen: false).indexPage;
 
     if (_controller.page == 1) {
       previousChapter(1);
@@ -571,8 +612,8 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
   }
 
   void nextChapter(event) async {
-    var _currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var readDirection = Provider.of<NovelPageData>(context).readDirection;
+    var _currentItem = getNovelPageData(context, listen: false).currentItem;
+    var readDirection = ConfigHelper.getNovelReadDirection();
 
     if (widget.chapters.indexOf(_currentItem) == widget.chapters.length - 1) {
       Fluttertoast.showToast(msg: '已经是最后一章了');
@@ -585,7 +626,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
     } else {
       // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
 
-      Provider.of<NovelPageData>(context).indexPage = 1;
+      getNovelPageData(context, listen: false).changeIndexPage(1);
       page = 1;
     }
     NovelHistoryProvider.updateOrCreate(NovelHistory(
@@ -593,13 +634,14 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
 
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) + 1];
+      getNovelPageData(context, listen: false).changeCurrentItem(_currentItem);
     });
     await loadData(1, toStart: true);
   }
 
   void previousChapter(event) async {
-    var _currentItem = Provider.of<NovelPageData>(context).currentItem;
-    var readDirection = Provider.of<NovelPageData>(context).readDirection;
+    var _currentItem = getNovelPageData(context, listen: false).currentItem;
+    var readDirection = ConfigHelper.getNovelReadDirection();
 
     if (widget.chapters.indexOf(_currentItem) == 0) {
       Fluttertoast.showToast(msg: '已经是最前面一章了');
@@ -612,7 +654,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
     } else {
       // ConfigHelper.setCurrentPage(widget.novelId, _currentItem.chapter_id, 1);
 
-      Provider.of<NovelPageData>(context).indexPage = 1;
+      getNovelPageData(context, listen: false).changeIndexPage(1);
       page = 1;
     }
     NovelHistoryProvider.updateOrCreate(NovelHistory(
@@ -620,6 +662,7 @@ class _NovelReaderContentState extends State<NovelReaderContent> {
 
     setState(() {
       _currentItem = widget.chapters[widget.chapters.indexOf(_currentItem) - 1];
+      getNovelPageData(context, listen: false).changeCurrentItem(_currentItem);
     });
     await loadData(1, toEnd: true);
   }
@@ -635,4 +678,7 @@ class ComputeParameter {
       this.content, this.width, this.height, this.fontSize, this.lineHeight);
 }
 
-class ChangePage {}
+class ChangePage {
+  bool asc;
+  ChangePage(this.asc);
+}
