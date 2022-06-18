@@ -76,7 +76,7 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
         value = _verSliderValue;
         maxValue = _verSliderMax;
         onChanged = (e) {
-          controllerVer.jumpTo(e);
+          mainEvent.fire(EventType(eventType.jumpToVer, page: e));
         };
       } else {
         value = indexPage >= 1 ? indexPage - 1.toDouble() : 0;
@@ -85,8 +85,9 @@ class _NovelPageBottomState extends State<NovelPageBottom> {
             value);
         onChanged = (e) {
           setState(() {
-            indexPage = e.toInt() + 1;
-            controller.jumpToPage(e.toInt() + 1);
+            getNovelPageData(context, listen: false)
+                .changeIndexPage(e.toInt() + 1);
+            mainEvent.fire(EventType(eventType.jumpTo, page: e + 1));
           });
         };
       }

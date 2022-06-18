@@ -87,7 +87,8 @@ EventBus mainEvent = EventBus();
 
 class EventType {
   eventType type;
-  EventType(this.type);
+  double page;
+  EventType(this.type, {this.page});
 }
 
 enum eventType {
@@ -95,4 +96,6 @@ enum eventType {
   nextChapter,
   previousChapter,
   handleContent,
+  jumpTo,
+  jumpToVer,
 }

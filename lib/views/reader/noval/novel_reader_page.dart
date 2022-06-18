@@ -52,40 +52,16 @@ class NovelReaderContentState extends State<NovelReaderContent> {
 
   StreamSubscription<ChangePage> pagechangeEvent;
   StreamSubscription<EventType> eventRunnter;
+
+  var _controllerVer = ScrollController();
+  var _controller = PageController(initialPage: 1);
+
   @override
   void initState() {
     super.initState();
 
-    pagechangeEvent = mainEvent.on<ChangePage>().listen((event) {
-      print(event.asc);
-      if (event.asc) {
-        previousPage(1);
-      } else {
-        nextPage(1);
-      }
-    });
+    initEvent();
 
-    eventRunnter = mainEvent.on<EventType>().listen((event) {
-      print(event.type);
-      var type = event.type;
-      switch (type) {
-        case eventType.loadData:
-          loadData(1);
-          break;
-        case eventType.nextChapter:
-          nextChapter(1);
-          break;
-        case eventType.previousChapter:
-          previousChapter(1);
-          break;
-        case eventType.handleContent:
-          handleContent(1);
-          break;
-        default:
-      }
-    });
-
-    var _controllerVer = getNovelPageData(context, listen: false).controllerVer;
     _controllerVer.addListener(() {
       var value = _controllerVer.offset;
       if (value < 0) {
@@ -143,6 +119,7 @@ class NovelReaderContentState extends State<NovelReaderContent> {
 
   // 左右滑动页面
   Widget buildPageView() {
+    // 横向页面滑动事件
     var onPageChanged = (int page) {
       var _loading = getNovelPageData(context, listen: false).loading;
       if (page ==
@@ -157,10 +134,12 @@ class NovelReaderContentState extends State<NovelReaderContent> {
         previousChapter(1);
         return;
       }
+
+      print("setState page:$page");
       if (page <
           getNovelPageData(context, listen: false).pageContents.length + 1) {
         setState(() {
-          // print("setState page:$page");
+          print("setState page:$page");
           // print("setState indexPage:$_indexPage");
           getNovelPageData(context, listen: false).changeIndexPage(page);
           var readDirection = ConfigHelper.getNovelReadDirection();
@@ -178,7 +157,7 @@ class NovelReaderContentState extends State<NovelReaderContent> {
         //左右滑动模式
         scrollDirection: Axis.horizontal,
         pageSnapping: Provider.of<AppSetting>(context).novelReadDirection != 2,
-        controller: getNovelPageData(context).controller,
+        controller: _controller,
         itemCount: getNovelPageData(context).pageContents.length + 2,
         reverse: Provider.of<AppSetting>(context).novelReadDirection == 1,
         onPageChanged: onPageChanged,
@@ -278,7 +257,7 @@ class NovelReaderContentState extends State<NovelReaderContent> {
       header: MaterialHeader(),
       footer: MaterialFooter(enableInfiniteLoad: false), // 关闭无限刷新防止触底就翻页
       child: SingleChildScrollView(
-        controller: getNovelPageData(context).controllerVer,
+        controller: _controllerVer,
         child: _isPicture
             ? Column(
                 // 插图
@@ -411,13 +390,10 @@ class NovelReaderContentState extends State<NovelReaderContent> {
         print("toEnd");
 
         SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
-          var toPage = getNovelPageData(context, listen: false)
-              .controllerVer
-              .position
-              .maxScrollExtent; // 减去屏幕高度
+          var toPage = _controllerVer.position.maxScrollExtent; // 减去屏幕高度
           // print("toPage:$toPage");
           // print("_verSliderMax:$_verSliderMax");
-          getNovelPageData(context, listen: false).controllerVer.jumpTo(toPage);
+          _controllerVer.jumpTo(toPage);
           var _verSliderValue =
               getNovelPageData(context, listen: false).verSliderValue;
           NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
@@ -429,14 +405,12 @@ class NovelReaderContentState extends State<NovelReaderContent> {
         if (novelItem.chapterId == _currentItem.chapter_id &&
             novelItem.mode == readDirection) {
           var oldPage = novelItem.page;
-          getNovelPageData(context, listen: false)
-              .controllerVer
-              .jumpTo(oldPage);
+          _controllerVer.jumpTo(oldPage);
           // print("oldPage:$oldPage");
         }
       } else {
         try {
-          getNovelPageData(context, listen: false).controllerVer.jumpTo(0);
+          _controllerVer.jumpTo(0);
         } catch (e) {}
       }
     } else {
@@ -446,7 +420,7 @@ class NovelReaderContentState extends State<NovelReaderContent> {
         print("toEnd");
         var toPage =
             getNovelPageData(context, listen: false).pageContents.length;
-        getNovelPageData(context, listen: false).controller.jumpToPage(toPage);
+        _controller.jumpToPage(toPage);
         getNovelPageData(context, listen: false)
             .changeIndexPage(toPage); // 未知原因导致跳页后onPageChanged返回index一直是2
         NovelHistoryProvider.updateOrCreate(NovelHistory(widget.novelId,
@@ -458,16 +432,16 @@ class NovelReaderContentState extends State<NovelReaderContent> {
             novelItem.mode == readDirection) {
           var oldPage = (novelItem.page).floor();
           // ConfigHelper.getCurrentPage(widget.novelId, _currentItem.chapter_id);
-          getNovelPageData(context, listen: false)
-              .controller
-              .jumpToPage(oldPage);
+          _controller.jumpToPage(oldPage);
           getNovelPageData(context, listen: false).changeIndexPage(oldPage);
           // print("oldPage:$oldPage");
           // print("indexPage:$_indexPage");
+        } else {
+          getNovelPageData(context, listen: false).changeIndexPage(1);
         }
       } else {
         try {
-          getNovelPageData(context, listen: false).controller.jumpToPage(1);
+          _controller.jumpToPage(1);
         } catch (e) {}
       }
     }
@@ -571,7 +545,6 @@ class NovelReaderContentState extends State<NovelReaderContent> {
   void nextPage(event) {
     var _currentItem = getNovelPageData(context, listen: false).currentItem;
     var readDirection = ConfigHelper.getNovelReadDirection();
-    var _controller = getNovelPageData(context, listen: false).controller;
     var _indexPage = getNovelPageData(context, listen: false).indexPage;
 
     if (_controller.page >
@@ -593,7 +566,6 @@ class NovelReaderContentState extends State<NovelReaderContent> {
   void previousPage(event) {
     var _currentItem = getNovelPageData(context, listen: false).currentItem;
     var readDirection = ConfigHelper.getNovelReadDirection();
-    var _controller = getNovelPageData(context, listen: false).controller;
     var _indexPage = getNovelPageData(context, listen: false).indexPage;
 
     if (_controller.page == 1) {
@@ -665,6 +637,49 @@ class NovelReaderContentState extends State<NovelReaderContent> {
       getNovelPageData(context, listen: false).changeCurrentItem(_currentItem);
     });
     await loadData(1, toEnd: true);
+  }
+
+  void initEvent() {
+    pagechangeEvent = mainEvent.on<ChangePage>().listen((event) {
+      if (event.asc) {
+        previousPage(1);
+      } else {
+        nextPage(1);
+      }
+    });
+
+    eventRunnter = mainEvent.on<EventType>().listen((event) {
+      var type = event.type;
+      switch (type) {
+        case eventType.loadData:
+          loadData(1);
+          break;
+        case eventType.nextChapter:
+          nextChapter(1);
+          break;
+        case eventType.previousChapter:
+          previousChapter(1);
+          break;
+        case eventType.handleContent:
+          handleContent(1);
+          break;
+        case eventType.jumpTo:
+          jumpTo(event.page);
+          break;
+        case eventType.jumpToVer:
+          jumpToVer(event.page);
+          break;
+        default:
+      }
+    });
+  }
+
+  void jumpToVer(double e) {
+    _controllerVer.jumpTo(e);
+  }
+
+  void jumpTo(double e) {
+    _controller.jumpToPage(e.toInt());
   }
 }
 
